@@ -34,6 +34,8 @@ function LogMsg([string]$m) {
 # ── 单实例：已经有托盘在跑，就让它把窗口叫出来（便携版/安装版同时双击也不打架）────
 $mutex = New-Object System.Threading.Mutex($false, 'Local\QQbotLauncherTray')
 if (-not $mutex.WaitOne(0)) {
+  # 设置了「启动时最小化到系统栏」：第二实例只是挂托盘，不弹窗口。
+  if ($NoWindow) { exit 0 }
   try {
     # 不去自己开窗口：留个请求文件，由已在跑的那个托盘走「置顶」逻辑，
     # 这样第二次双击的结果和「双击托盘图标」完全一致（置顶一下，不会多开窗口）。
@@ -105,6 +107,8 @@ $script:StateTask = $null
 $script:StateCache = $null
 $script:StateCacheAt = [DateTime]::MinValue
 $script:StateFetchAt = [DateTime]::MinValue
+$script:StateTheme = $null
+$script:ThemeSig = ''
 
 function Start-StateFetch {
   if ($script:StateTask -and -not $script:StateTask.IsCompleted) { return }
@@ -115,6 +119,18 @@ function Start-StateFetch {
     $script:StateTask = $wc.DownloadStringTaskAsync("http://127.0.0.1:$($script:Port)/api/state")
     $script:StateFetchAt = Get-Date
   } catch { $script:StateTask = $null }
+}
+
+function Apply-TrayTheme {
+  $theme = $script:StateTheme
+  if (-not $theme -or -not $script:Menu) { return }
+  $sig = [string]$theme.sig
+  if ($sig -and $script:ThemeSig -eq $sig) { return }
+  $script:ThemeSig = $sig
+  try {
+    $script:Menu.SetTheme([string]$theme.bg, [string]$theme.text, [string]$theme.muted, [string]$theme.line, [string]$theme.hover, [string]$theme.danger)
+    LogMsg ("菜单主题已更新：{0}" -f $sig)
+  } catch { LogMsg "菜单主题应用失败：$($_.Exception.Message)" }
 }
 
 function Poll-StateFetch {
@@ -132,6 +148,7 @@ function Poll-StateFetch {
     if ($task.Status -eq [System.Threading.Tasks.TaskStatus]::RanToCompletion) {
       $script:StateCache = ($task.Result | ConvertFrom-Json)
       $script:StateCacheAt = Get-Date
+      $script:StateTheme = $script:StateCache.theme
     }
   } catch { }
   $script:StateTask = $null
@@ -308,6 +325,7 @@ function Show-TrayMenu {
     $script:Menu.AddRow('', $script:StatusText, 'status')
     $script:Menu.AddRow('', '', 'sep')
     $script:Menu.AddRow('quit', '退出', 'quit')
+    Apply-TrayTheme
     $script:Menu.Commit()
     LogMsg '菜单：弹出'
     $pos = [System.Windows.Forms.Cursor]::Position
@@ -331,11 +349,21 @@ $script:DoQuit = {
   $notify.Visible = $false
   # 无边框宿主收到 exit.request 会先播 260ms 的淡出，再自己结束进程。
   try { [System.IO.File]::WriteAllText((Join-Path $script:DataDir 'exit.request'), [DateTime]::UtcNow.Ticks.ToString()) } catch { }
+  # 记下「正在退出」和这次要退出的服务端 PID：
+  # 用户点完退出马上又双击时，入口看到 quitting.flag 会等旧实例退干净；
+  # 后台迟到的 /api/quit 带着旧 PID，新服务端会拒绝，不会误杀。
+  $serverPid = 0
+  try {
+    $pidFile = Join-Path $script:DataDir 'launcher.pid'
+    if (Test-Path $pidFile) { [void][int]::TryParse((Get-Content $pidFile -Raw).Trim(), [ref]$serverPid) }
+    [System.IO.File]::WriteAllText((Join-Path $script:DataDir 'quitting.flag'), "$([DateTime]::UtcNow.Ticks) $serverPid")
+  } catch { }
   # 停 SnowLuma/桥接可能要好几秒：交给一个隐藏的后台 powershell 去做（-EncodedCommand 避免引号被拆），
   # 托盘自己马上退出，右键退出不再「卡顿」。
   if ($script:Port) {
     $url = "http://127.0.0.1:$($script:Port)/api/quit"
-    $cmd = "try { Invoke-WebRequest -Uri '$url' -Method Post -Body '{`"stopAll`":true}' -ContentType 'application/json' -TimeoutSec 120 -UseBasicParsing | Out-Null } catch { }"
+    $bodyJson = '{"stopAll":true,"pid":' + $serverPid + '}'
+    $cmd = "try { Invoke-WebRequest -Uri '$url' -Method Post -Body '$bodyJson' -ContentType 'application/json' -TimeoutSec 120 -UseBasicParsing | Out-Null } catch { }"
     try {
       $enc = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($cmd))
       Start-Process -FilePath "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -ArgumentList @('-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-EncodedCommand', $enc) -WindowStyle Hidden -ErrorAction SilentlyContinue | Out-Null
@@ -392,6 +420,7 @@ function Invoke-TrayTick {
   # 状态在后台取，这里只消费缓存（解析 10KB JSON 是毫秒级）。
   Poll-StateFetch
   $state = $script:StateCache
+  Apply-TrayTheme
   $cacheAge = ((Get-Date) - $script:StateCacheAt).TotalSeconds
   if ($script:Port -and ($cacheAge -gt 3 -or -not $state)) { Start-StateFetch }
   # 存活判定只看缓存年龄：既不阻塞 UI 线程，也不会因为一次 2 秒的超时就把菜单卡住。

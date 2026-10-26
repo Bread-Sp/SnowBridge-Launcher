@@ -24,7 +24,7 @@ $stage = Join-Path $env:TEMP ('SnowBridgePayload_' + [Guid]::NewGuid().ToString(
 New-Item -ItemType Directory -Path $stage | Out-Null
 try {
   # 1. 运行时文件
-  $appFiles = @('server.mjs', 'ui.html', 'launch.mjs', 'tray.ps1', 'winhelp.cs', 'SnowBridgeHost.cs', 'hidehost.cs', 'icon.ico', 'icon.png')
+  $appFiles = @('server.mjs', 'ui.html', 'launch.mjs', 'tray.ps1', 'winhelp.cs', 'SnowBridgeHost.cs', 'hidehost.cs', 'icon.ico', 'icon.png', 'donate.png')
   foreach ($f in $appFiles) { Copy-Item (Join-Path $app $f) (Join-Path $stage $f) -Force }
   $tpFiles = @('Microsoft.Web.WebView2.Core.dll', 'Microsoft.Web.WebView2.WinForms.dll', 'WebView2Loader.dll')
   foreach ($f in $tpFiles) { Copy-Item (Join-Path $tp $f) (Join-Path $stage $f) -Force }

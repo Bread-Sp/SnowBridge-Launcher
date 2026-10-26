@@ -7,6 +7,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
@@ -55,7 +56,7 @@ static class Program
             {
                 // 快路径：入口自己把窗口拉起来，不把它压在 PowerShell 冷启动后面。
                 int port = EnsureServer(appRoot);
-                if (port > 0) OpenWindow(appRoot, port);
+                if (port > 0 && !StartMinimized(port)) OpenWindow(appRoot, port);
                 trayArgs = AppendArg(args, "-NoWindow");
             }
 
@@ -117,11 +118,79 @@ static class Program
         return "node.exe";
     }
 
-    // 服务端已经在跑就直接返回端口；没在跑就拉起来并等它就绪（最多约 8 秒）。
+    // 托盘「退出」会写这个标记：用户点完退出马上又双击时，旧实例可能还在退，
+    // 不能因为端口还开着就直接复用它。
+    static bool QuitFlagFresh()
+    {
+        try
+        {
+            string flag = Path.Combine(DataDir, "quitting.flag");
+            if (!File.Exists(flag)) return false;
+            return (DateTime.UtcNow - File.GetLastWriteTimeUtc(flag)).TotalSeconds < 120;
+        }
+        catch { return false; }
+    }
+
+    // 端口开着 ≠ 服务端可用：必须真的拿到 /api/ping 的应答，避免复用一个将要退出的实例。
+    static bool PingOk(int port)
+    {
+        try
+        {
+            var request = (HttpWebRequest)WebRequest.Create("http://127.0.0.1:" + port + "/api/ping");
+            request.Timeout = 1200;
+            request.ReadWriteTimeout = 1200;
+            request.Proxy = null;
+            using (var response = (HttpWebResponse)request.GetResponse())
+            using (var reader = new StreamReader(response.GetResponseStream()))
+            {
+                string text = reader.ReadToEnd();
+                return response.StatusCode == HttpStatusCode.OK
+                    && text.IndexOf("qqbot-launcher", StringComparison.Ordinal) >= 0;
+            }
+        }
+        catch { return false; }
+    }
+
+    // 设置里勾了「启动时最小化到系统栏」：双击入口只挂托盘，不弹窗口。
+    static bool StartMinimized(int port)
+    {
+        try
+        {
+            var request = (HttpWebRequest)WebRequest.Create("http://127.0.0.1:" + port + "/api/settings");
+            request.Timeout = 1200;
+            request.ReadWriteTimeout = 1200;
+            request.Proxy = null;
+            using (var response = (HttpWebResponse)request.GetResponse())
+            using (var reader = new StreamReader(response.GetResponseStream()))
+            {
+                string text = reader.ReadToEnd().Replace(" ", "");
+                return response.StatusCode == HttpStatusCode.OK
+                    && text.IndexOf("\"startMinimized\":true", StringComparison.OrdinalIgnoreCase) >= 0;
+            }
+        }
+        catch { return false; }
+    }
+
+    // 服务端已经在跑（而且真的在应答）就直接返回端口；没在跑就拉起来并等它就绪。
     static int EnsureServer(string appRoot)
     {
         int port = LauncherPort();
-        if (PortOpen(port)) return port;
+
+        // 正在退出：等旧实例把端口放出来（最多 12 秒），再起新的。
+        if (QuitFlagFresh())
+        {
+            for (int i = 0; i < 120; i++)
+            {
+                if (!PortOpen(port)) break;
+                Thread.Sleep(100);
+            }
+        }
+
+        if (port > 0 && PingOk(port)) return port;
+
+        // 端口还开着但不应答：多半是正在死的旧实例，等它消失再起新的。
+        for (int i = 0; i < 30 && PortOpen(port); i++) Thread.Sleep(100);
+
         try
         {
             var psi = new ProcessStartInfo
@@ -135,11 +204,12 @@ static class Program
             Process.Start(psi);
         }
         catch { return 0; }
-        for (int i = 0; i < 80; i++)
+
+        for (int i = 0; i < 120; i++)
         {
             Thread.Sleep(100);
             port = LauncherPort();
-            if (PortOpen(port)) return port;
+            if (port > 0 && PingOk(port)) return port;
         }
         return 0;
     }

@@ -140,13 +140,41 @@ namespace SnowBridge
         private const int SepH = 7;
         private const int Radius = 10;
 
-        private static readonly Color Bg = Color.FromArgb(23, 31, 46);
-        private static readonly Color Border = Color.FromArgb(46, 60, 82);
-        private static readonly Color Hover = Color.FromArgb(34, 46, 68);
-        private static readonly Color SepLine = Color.FromArgb(38, 50, 70);
-        private static readonly Color ItemText = Color.FromArgb(214, 224, 238);
-        private static readonly Color MutedText = Color.FromArgb(124, 138, 160);
-        private static readonly Color QuitText = Color.FromArgb(255, 140, 140);
+        // 默认深色（旧配色）只是一份初始值：托盘每次拿到 /api/state 的 theme 就会 SetTheme 覆盖，
+        // 这样改主题色时右键菜单也能跟上，而不是永远写死深蓝。
+        private Color _bg = Color.FromArgb(23, 31, 46);
+        private Color _border = Color.FromArgb(46, 60, 82);
+        private Color _hoverBg = Color.FromArgb(34, 46, 68);
+        private Color _sep = Color.FromArgb(38, 50, 70);
+        private Color _itemText = Color.FromArgb(214, 224, 238);
+        private Color _mutedText = Color.FromArgb(124, 138, 160);
+        private Color _quitText = Color.FromArgb(255, 140, 140);
+
+        /// <summary>跟随应用主题：#rrggbb 字符串，解析失败保留旧色。</summary>
+        public void SetTheme(string bg, string text, string muted, string line, string hover, string danger)
+        {
+            _bg = ParseHex(bg, _bg);
+            _itemText = ParseHex(text, _itemText);
+            _mutedText = ParseHex(muted, _mutedText);
+            _sep = ParseHex(line, _sep);
+            _border = ParseHex(line, _border);
+            _hoverBg = ParseHex(hover, _hoverBg);
+            _quitText = ParseHex(danger, _quitText);
+            BackColor = _bg;
+            Invalidate();
+        }
+
+        private static Color ParseHex(string value, Color fallback)
+        {
+            if (string.IsNullOrEmpty(value)) return fallback;
+            string s = value.Trim();
+            if (s.StartsWith("#")) s = s.Substring(1);
+            if (s.Length != 6) return fallback;
+            int rgb;
+            if (!int.TryParse(s, System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out rgb))
+                return fallback;
+            return Color.FromArgb((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF);
+        }
 
         private readonly Font _itemFont = new Font("Microsoft YaHei UI", 9f, FontStyle.Regular, GraphicsUnit.Point);
         private readonly Font _statusFont = new Font("Microsoft YaHei UI", 8.25f, FontStyle.Regular, GraphicsUnit.Point);
@@ -243,7 +271,7 @@ namespace SnowBridge
             ShowInTaskbar = false;
             TopMost = true;
             StartPosition = FormStartPosition.Manual;
-            BackColor = Bg;
+            BackColor = _bg;
             Font = _itemFont;
             DoubleBuffered = true;
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer, true);
@@ -340,10 +368,10 @@ namespace SnowBridge
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
             var all = new Rectangle(0, 0, _w - 1, Height - 1);
-            using (var bgBrush = new SolidBrush(Bg)) g.FillRectangle(bgBrush, ClientRectangle);
+            using (var bgBrush = new SolidBrush(_bg)) g.FillRectangle(bgBrush, ClientRectangle);
             using (GraphicsPath path = Rounded(all, Radius))
             {
-                using (var pen = new Pen(Border)) g.DrawPath(pen, path);
+                using (var pen = new Pen(_border)) g.DrawPath(pen, path);
             }
 
             for (int i = 0; i < _rows.Count; i++)
@@ -353,7 +381,7 @@ namespace SnowBridge
                 if (r.Kind == "sep")
                 {
                     int y = rect.Y + rect.Height / 2;
-                    using (var pen = new Pen(SepLine)) g.DrawLine(pen, PadX + 4, y, _w - PadX - 4, y);
+                    using (var pen = new Pen(_sep)) g.DrawLine(pen, PadX + 4, y, _w - PadX - 4, y);
                     continue;
                 }
 
@@ -362,10 +390,10 @@ namespace SnowBridge
                 {
                     Rectangle hr = new Rectangle(PadX - 2, rect.Y + 1, _w - (PadX - 2) * 2, rect.Height - 2);
                     using (GraphicsPath hp = Rounded(hr, 6))
-                    using (var hb = new SolidBrush(Hover)) g.FillPath(hb, hp);
+                    using (var hb = new SolidBrush(_hoverBg)) g.FillPath(hb, hp);
                 }
 
-                Color color = r.Kind == "status" ? MutedText : (r.Kind == "quit" ? QuitText : ItemText);
+                Color color = r.Kind == "status" ? _mutedText : (r.Kind == "quit" ? _quitText : _itemText);
                 Font f = r.Kind == "status" ? _statusFont : _itemFont;
                 var textRect = new Rectangle(PadX + 6, rect.Y, _w - (PadX + 6) - PadX, rect.Height);
                 TextFormatFlags flags = TextFormatFlags.Left | TextFormatFlags.VerticalCenter |

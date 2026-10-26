@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using Microsoft.Win32;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
 
@@ -40,6 +41,18 @@ static class Program
     [STAThread]
     static void Main(string[] args)
     {
+        try
+        {
+            string icoForTaskbar = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "icon.ico");
+            using (RegistryKey k = Registry.CurrentUser.CreateSubKey(@"Software\Classes\AppUserModelId\SnowBridge.Launcher.Host"))
+            {
+                k.SetValue("DisplayName", "SnowBridge Launcher");
+                if (System.IO.File.Exists(icoForTaskbar)) k.SetValue("IconUri", icoForTaskbar);
+            }
+            Aumid.Set("SnowBridge.Launcher.Host");
+        }
+        catch { }
+
         bool created;
         using (var mutex = new Mutex(true, "Local\\SnowBridgeShell", out created))
         {
@@ -86,10 +99,12 @@ class ShellForm : Form
     System.Windows.Forms.Timer animTimer;
     System.Windows.Forms.Timer pingTimer;
     int pingFails;
+    int navFails;
     bool quitting;
     bool animating;
     bool shown;
     bool maximized;
+    bool winAnimating;
     Rectangle restoreBounds;
     int animStep;
     System.Windows.Forms.Timer navFallbackTimer;
@@ -103,6 +118,13 @@ class ShellForm : Form
         summonFile = System.IO.Path.Combine(appDir, "summon.request");
         exitFile = System.IO.Path.Combine(appDir, "exit.request");
         Text = "SnowBridge Launcher";
+        try
+        {
+            string iconPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "icon.ico");
+            if (System.IO.File.Exists(iconPath)) Icon = new System.Drawing.Icon(iconPath);
+            else Icon = System.Drawing.Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+        }
+        catch { }
         FormBorderStyle = FormBorderStyle.None;
         StartPosition = FormStartPosition.Manual;
         Rectangle area = Screen.PrimaryScreen.WorkingArea;
@@ -145,7 +167,8 @@ class ShellForm : Form
             await web.EnsureCoreWebView2Async(env);
             HostLog.Write("webview2 ready");
             web.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
-            web.CoreWebView2.Settings.AreDevToolsEnabled = true;
+            web.CoreWebView2.Settings.AreDevToolsEnabled = false;
+            web.CoreWebView2.Settings.AreBrowserAcceleratorKeysEnabled = false;
             web.CoreWebView2.Settings.IsStatusBarEnabled = false;
             web.CoreWebView2.Settings.IsZoomControlEnabled = true;
             web.CoreWebView2.WebMessageReceived += OnMessage;
@@ -186,7 +209,34 @@ class ShellForm : Form
             navFallbackTimer.Dispose();
             navFallbackTimer = null;
         }
-        if (!e.IsSuccess) { HostLog.Write("nav failed: " + e.WebErrorStatus + " after " + navWatch.ElapsedMilliseconds + "ms"); StartAnimation(); return; }
+        if (!e.IsSuccess)
+        {
+            HostLog.Write("nav failed: " + e.WebErrorStatus + " after " + navWatch.ElapsedMilliseconds + "ms");
+            navFails++;
+            StartAnimation();
+            // 服务端可能正在重启：先让窗口亮着，过 800ms 自动重试，别停在浏览器的错误页。
+            if (!quitting && navFails <= 60)
+            {
+                var retry = new System.Windows.Forms.Timer { Interval = 800 };
+                retry.Tick += delegate
+                {
+                    retry.Stop();
+                    retry.Dispose();
+                    try
+                    {
+                        if (!quitting && web != null && web.CoreWebView2 != null)
+                        {
+                            navWatch.Restart();
+                            web.CoreWebView2.Navigate(url);
+                        }
+                    }
+                    catch { }
+                };
+                retry.Start();
+            }
+            return;
+        }
+        navFails = 0;
         HostLog.Write("nav completed: " + web.CoreWebView2.Source + " (" + navWatch.ElapsedMilliseconds + "ms)");
         // 关键：页面真正加载完再显示窗口并整窗淡入，避免「先弹一个黑窗、内容慢半拍」。
         StartAnimation();
@@ -231,10 +281,19 @@ class ShellForm : Form
             ReleaseCapture();
             SendMessage(Handle, WM_NCLBUTTONDOWN, (IntPtr)HTCAPTION, IntPtr.Zero);
         }
-        else if (action.EndsWith("minimize")) WindowState = FormWindowState.Minimized;
+        else if (action.EndsWith("minimize")) AnimateWindowOut(true);
         else if (action.EndsWith("maximize")) ToggleMaximize();
-        else if (action.EndsWith("close")) HideToTray();
+        else if (action.EndsWith("close")) AnimateWindowOut(false);
         else if (action.EndsWith("exit")) FadeOutAndExit();
+        else if (action.StartsWith("open-url:"))
+        {
+            string target = action.Substring("open-url:".Length).Trim();
+            if (target.Length < 500 && (target.StartsWith("https://") || target.StartsWith("http://")))
+            {
+                try { Process.Start(new ProcessStartInfo(target) { UseShellExecute = true }); HostLog.Write("open url: " + target); }
+                catch (Exception ex) { HostLog.Write("open url failed " + ex.Message); }
+            }
+        }
     }
 
     // 退出动画：窗口淡出 + 轻微下移，播完再真正退出进程。
@@ -298,12 +357,62 @@ class ShellForm : Form
         HostLog.Write("window hidden");
     }
 
+    // 最小化 / 关闭到托盘的窗口级过渡（和呼出动画同一套缓动，方向相反）：
+    // 先让整个窗口淡出并轻微下沉，播完再真正最小化或隐藏；收起后把透明度和位置复位，
+    // 这样从任务栏还原 / 再次呼出时不会残留半透明。
+    void AnimateWindowOut(bool minimize)
+    {
+        if (quitting || winAnimating || exiting) return;
+        winAnimating = true;
+        if (animTimer != null)
+        {
+            animTimer.Stop();
+            animTimer.Dispose();
+            animTimer = null;
+            animating = false;
+        }
+        int baseTop = Top;
+        int step = 0;
+        var timer = new System.Windows.Forms.Timer { Interval = 16 };
+        timer.Tick += delegate
+        {
+            step++;
+            double t = Math.Min(1.0, step / 12.0);
+            double eased = t * t;
+            Opacity = 1 - eased;
+            Top = (int)(baseTop + 10 * eased);
+            if (t >= 1.0)
+            {
+                timer.Stop();
+                timer.Dispose();
+                winAnimating = false;
+                if (minimize) WindowState = FormWindowState.Minimized;
+                else Hide();
+                Opacity = 1;
+                Top = baseTop;
+                HostLog.Write(minimize ? "window minimize" : "window close (hide)");
+            }
+        };
+        timer.Start();
+    }
+
     void OnClosing(object sender, FormClosingEventArgs e)
     {
         if (quitting) return;
         e.Cancel = true;
-        Hide();
-        HostLog.Write("close intercepted -> hide");
+        var core = web != null ? web.CoreWebView2 : null;
+        if (core != null)
+        {
+            // 不再直接收进托盘：先问页面「结束进程还是后台运行」，
+            // 页面按用户选择回 close（隐藏）或 exit（退出），也负责记「不再提醒」。
+            core.PostWebMessageAsJson("{\"action\":\"close-request\"}");
+            HostLog.Write("close intercepted -> ask");
+        }
+        else
+        {
+            Hide();
+            HostLog.Write("close intercepted -> hide (no webview)");
+        }
     }
 
     void StartAnimation()
@@ -389,8 +498,23 @@ class ShellForm : Form
             catch { pingFails++; }
             if (pingFails >= 3)
             {
-                HostLog.Write("server unreachable, exiting");
-                FadeOutAndExit();
+                // 先不退出：服务端可能只是重启中。主动重新导航一次，
+                // 等它回来页面自己就能恢复；长时间起不来才关窗口。
+                HostLog.Write("server unreachable (" + pingFails + "), retrying page");
+                try
+                {
+                    if (!quitting && web != null && web.CoreWebView2 != null)
+                    {
+                        navWatch.Restart();
+                        web.CoreWebView2.Navigate(url);
+                    }
+                }
+                catch { }
+                if (pingFails >= 24)
+                {
+                    HostLog.Write("server unreachable too long, exiting");
+                    FadeOutAndExit();
+                }
             }
         };
         pingTimer.Start();
@@ -443,4 +567,11 @@ class ShellForm : Form
         }
         base.WndProc(ref m);
     }
+
+}
+static class Aumid
+{
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern int SetCurrentProcessExplicitAppUserModelID(string appId);
+    public static void Set(string id) { try { SetCurrentProcessExplicitAppUserModelID(id); } catch { } }
 }

@@ -33,22 +33,148 @@ const MAX_LINES = 3000;
 const POLL_MS = 3000;
 
 /** 程序版本：显示在窗口标题、界面角标、托盘提示和安装包里，也是以后升级判断的依据。 */
-const VERSION = '0.0.3';
+const VERSION = '0.1.1';
 
 // ── 配置 ────────────────────────────────────────────────────────────────────
 const DEFAULT_CONFIG = {
   snowlumaDir: 'E:\\SnowLuma',
   bridgeDir: 'E:\\qq bridge',
   autoStartAll: false,   // 打开启动台就自动拉起两个服务
+  // 双击入口只把托盘挂起来，不弹窗口（设置 → 常规）。
+  startMinimized: false,
+  autoAdopt: true,        // 自动接管外部启动的 SnowLuma / qq-bridge（默认开启）
   autoRestart: true,     // 服务意外退出后自动重启（只对「本启动台启动的」生效）
   port: DEFAULT_PORT,
   // 自动加载 hook 的账号（UIN 字符串）。SnowLuma 自带的 hookAutoLoad 只能全开/全关，
   // 全开会把电脑上登录的每一个 QQ 都注入一遍（用户明确不要），所以这里只认点名的号。
   hookUins: [],
   // SnowLuma 控制台密码（DPAPI 加密，只有当前 Windows 用户能解开）：调它自己的 /api/login 用。
-  webuiPasswordEnc: ''
+  webuiPasswordEnc: '',
+  // 首次运行引导：安装后第一次启动弹一次「选目录」，用户点「完成」才置 true。
+  // 跳过不算完成：只要目录还没绑好，下次启动还会弹（用户要求）。
+  setupDone: false,
+  // 记忆面板额外指定的根目录（空 = 跟着桥接的 fs.root 走）。
+  memoryDir: '',
+  // 外观：preset=预设，color=自定义主色，image=背景图片（只认数据目录里的 wallpaper.*）。
+  // 具体渐变色和文字对比度由前端按这份配置现算，服务端只负责记住用户选了什么。
+  appearance: { mode: 'preset', preset: 'default', color: '#000000', image: '' }
 };
 
+const APPEARANCE_PRESETS = new Set(['default', 'sunset', 'forest', 'ocean', 'snow', 'silver', 'harness']);
+
+/** 外观校验：只收认识的模式/预设/颜色/图片名，别的一律退回默认。 */
+function normalizeAppearance(input, base) {
+  const source = { ...DEFAULT_CONFIG.appearance, ...(base && typeof base === 'object' ? base : {}) };
+  const app = { ...DEFAULT_CONFIG.appearance };
+  if (['preset', 'color', 'image'].includes(source.mode)) app.mode = source.mode;
+  if (typeof source.preset === 'string' && APPEARANCE_PRESETS.has(source.preset)) app.preset = source.preset;
+  if (typeof source.color === 'string' && /^#[0-9a-f]{6}$/i.test(source.color)) app.color = source.color.toLowerCase();
+  const savedName = typeof source.image === 'string' ? path.basename(source.image) : '';
+  if (savedName === source.image && /^wallpaper\.(png|jpe?g|webp|bmp|gif)$/i.test(savedName)) app.image = savedName;
+  if (input && typeof input === 'object') {
+    if (['preset', 'color', 'image'].includes(input.mode)) app.mode = input.mode;
+    if (typeof input.preset === 'string' && APPEARANCE_PRESETS.has(input.preset)) app.preset = input.preset;
+    if (typeof input.color === 'string' && /^#[0-9a-f]{6}$/i.test(input.color)) app.color = input.color.toLowerCase();
+    if (typeof input.image === 'string') {
+      const name = path.basename(input.image);
+      app.image = name === input.image && /^wallpaper\.(png|jpe?g|webp|bmp|gif)$/i.test(name) ? name : '';
+    }
+  }
+  if (!APPEARANCE_PRESETS.has(app.preset)) app.preset = 'default';
+  if (app.mode === 'image' && !app.image) app.mode = 'preset';
+  return app;
+}
+
+// ── 菜单主题色 ─────────────────────────────────────────────────────────────
+// 托盘右键菜单是自绘的原生窗口，拿不到 WebView 里的 CSS 变量，所以服务端把外观
+// 折算成一组 #rrggbb 一起塞进 /api/state；托盘每次轮询比对 sig，变了就 SetTheme。
+const PRESET_SPECS = {
+  sunset: { h: 20, s: 55, l: 30 },
+  forest: { h: 152, s: 40, l: 26 },
+  ocean: { h: 197, s: 60, l: 30 },
+  snow: { h: 208, s: 36, l: 88 },
+  silver: { h: 210, s: 6, l: 92 },
+  harness: { h: 220, s: 8, l: 8 }
+};
+
+function hslHex(h, s, l) {
+  h = ((h % 360) + 360) % 360;
+  s = Math.max(0, Math.min(100, s)) / 100;
+  l = Math.max(0, Math.min(100, l)) / 100;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n) => {
+    const k = (n + h / 30) % 12;
+    const c = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+    return Math.round(255 * c).toString(16).padStart(2, '0');
+  };
+  return '#' + f(0) + f(8) + f(4);
+}
+
+function hexToHsl(hex) {
+  const m = /^#([0-9a-f]{6})$/i.exec(String(hex || ''));
+  if (!m) return { h: 0, s: 0, l: 0 };
+  const n = parseInt(m[1], 16);
+  const r = ((n >> 16) & 255) / 255;
+  const g = ((n >> 8) & 255) / 255;
+  const b = (n & 255) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return { h: 0, s: 0, l: Math.round(l * 100) };
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h;
+  if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) * 60;
+  else if (max === g) h = ((b - r) / d + 2) * 60;
+  else h = ((r - g) / d + 4) * 60;
+  return { h: Math.round(h), s: Math.round(s * 100), l: Math.round(l * 100) };
+}
+
+function themePalette(appearance) {
+  const app = appearance && typeof appearance === 'object' ? appearance : DEFAULT_CONFIG.appearance;
+  const finish = (p) => {
+    // sig 里带上算出来的颜色：只改预设色值（没改 preset id）时托盘也能感知到变化。
+    p.sig = [app.mode, app.preset, app.color, app.image, p.bg, p.text, p.muted, p.line, p.hover, p.danger].join('|');
+    return p;
+  };
+  const danger = '#ff8b8b';
+  if (app.mode === 'image') {
+    return finish({ bg: '#12151c', text: '#e6e9ef', muted: '#8b93a3', line: '#242a36', hover: '#1d2330', danger });
+  }
+  if (app.mode === 'color') {
+    const c = hexToHsl(app.color);
+    return finish({
+      bg: hslHex(c.h, Math.max(10, c.s * 0.35), 9),
+      text: hslHex(c.h, 20, 93),
+      muted: hslHex(c.h, 12, 62),
+      line: hslHex(c.h, 15, 20),
+      hover: hslHex(c.h, 18, 17),
+      danger
+    });
+  }
+  const spec = app.preset === 'default' ? null : PRESET_SPECS[app.preset];
+  if (!spec) {
+    return finish({ bg: '#0f1115', text: '#e6e9ef', muted: '#8b93a3', line: '#262b36', hover: '#1f2530', danger });
+  }
+  const { h, s, l } = spec;
+  if (l >= 60) {
+    return finish({
+      bg: hslHex(h, s, l),
+      text: hslHex(h, Math.min(30, s), 15),
+      muted: hslHex(h, 18, 38),
+      line: hslHex(h, 18, 78),
+      hover: hslHex(h, 28, 86),
+      danger: '#c0392b'
+    });
+  }
+  return finish({
+    bg: hslHex(h, s, l),
+    text: hslHex(h, 25, 93),
+    muted: hslHex(h, 15, 62),
+    line: hslHex(h, 18, Math.min(40, l + 12)),
+    hover: hslHex(h, 20, Math.min(35, l + 9)),
+    danger
+  });
+}
 function ensureAppDir() {
   fs.mkdirSync(APP_DIR, { recursive: true });
 }
@@ -64,30 +190,66 @@ function loadConfig() {
   // 首次运行：猜一个合理的默认桥接目录（本文件就在 <bridge>/tools/launcher/ 里）
   const guessBridge = path.resolve(HERE, '..', '..');
   const guessSnowluma = fs.existsSync('E:\\SnowLuma') ? 'E:\\SnowLuma' : '';
-  return {
+  const merged = {
     ...DEFAULT_CONFIG,
     bridgeDir: fs.existsSync(path.join(guessBridge, 'src', 'bridge.js')) ? guessBridge : DEFAULT_CONFIG.bridgeDir,
     snowlumaDir: guessSnowluma || DEFAULT_CONFIG.snowlumaDir,
     ...stored
   };
+  // 老用户（launcher.json 里已经选好过目录）升级上来时不打扰：直接把 setupDone 当 true。
+  // 全新安装没有 launcher.json，setupDone 保持 false，首次启动弹一次向导。
+  if (!Object.prototype.hasOwnProperty.call(stored, 'setupDone') && fs.existsSync(CONFIG_FILE)
+      && stored.snowlumaDir && stored.bridgeDir) {
+    merged.setupDone = true;
+  }
+  return merged;
 }
 
 function saveConfig(patch) {
   const next = { ...config };
+  const changedDirs = [];
   for (const key of ['snowlumaDir', 'bridgeDir']) {
-    if (typeof patch[key] === 'string' && patch[key].trim()) next[key] = path.resolve(patch[key].trim());
+    if (typeof patch[key] === 'string' && patch[key].trim()) {
+      next[key] = path.resolve(patch[key].trim());
+      changedDirs.push(key);
+    }
   }
-  for (const key of ['autoStartAll', 'autoRestart']) {
+  // 记忆根目录允许清空（回到跟随桥接 fs.root）；只存路径，不强制它当时就存在——
+  // 但它指向的目录要能读，读不到时记忆面板会显示「没有日记」。
+  if (typeof patch.memoryDir === 'string') {
+    const value = patch.memoryDir.trim();
+    next.memoryDir = value ? path.resolve(value) : '';
+  }
+  if (patch.appearance && typeof patch.appearance === 'object') {
+    next.appearance = normalizeAppearance(patch.appearance, next.appearance);
+  }
+  for (const key of ['autoStartAll', 'autoRestart', 'setupDone', 'startMinimized', 'autoAdopt']) {
     if (typeof patch[key] === 'boolean') next[key] = patch[key];
   }
-  // 路径必须先验过再落盘：绑错目录的后果是「点启动没反应」，比报错更难查。
-  const errors = validateDirs(next);
+  // 首次引导期间允许「一次只绑一个目录」（另一个可能还没选），所以只校验这次改的；
+  // 点「完成」时 setupDone=true，再做全量校验，两个目录必须都合法。
+  const errors = [];
+  for (const key of changedDirs) errors.push(...validateOneDir(key, next[key]));
+  if (next.setupDone && errors.length === 0) errors.push(...validateDirs(next));
   if (errors.length > 0) return { ok: false, errors };
   config = next;
   ensureAppDir();
   fs.writeFileSync(CONFIG_FILE, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
   broadcastState();
   return { ok: true, config };
+}
+
+/** 只校验一个目录（首次引导里可以一个一个绑）。 */
+function validateOneDir(key, dir) {
+  if (!dir || !fs.existsSync(dir)) {
+    return [key === 'snowlumaDir' ? `SnowLuma 目录不存在：${dir || '(空)'}` : `qq-bridge 目录不存在：${dir || '(空)'}`];
+  }
+  if (key === 'snowlumaDir') {
+    return fs.existsSync(path.join(dir, 'index.mjs'))
+      || fs.readdirSync(dir).some((f) => /^snowluma.*\.exe$/i.test(f))
+      ? [] : [`SnowLuma 目录里没有 index.mjs：${dir}`];
+  }
+  return fs.existsSync(path.join(dir, 'src', 'bridge.js')) ? [] : [`qq-bridge 目录里没有 src\\bridge.js：${dir}`];
 }
 
 function validateDirs(cfg) {
@@ -102,6 +264,62 @@ function validateDirs(cfg) {
     errors.push(`qq-bridge 目录里没有 src\\bridge.js：${cfg.bridgeDir}`);
   }
   return errors;
+}
+
+/** 目录本身像不像 SnowLuma：有 index.mjs，或有 snowluma*.exe。 */
+function isSnowlumaDir(dir) {
+  try {
+    if (!dir || !fs.statSync(dir).isDirectory()) return false;
+    if (fs.existsSync(path.join(dir, 'index.mjs'))) return true;
+    return fs.readdirSync(dir).some((f) => /^snowluma.*\.exe$/i.test(f));
+  } catch {
+    return false;
+  }
+}
+
+/** 目录本身像不像 qq-bridge：有 src\\bridge.js，或 package.json 名字里带 qq-bridge。 */
+function isBridgeDir(dir) {
+  try {
+    if (!dir || !fs.statSync(dir).isDirectory()) return false;
+    if (fs.existsSync(path.join(dir, 'src', 'bridge.js'))) return true;
+    const pkg = path.join(dir, 'package.json');
+    if (fs.existsSync(pkg)) {
+      const json = JSON.parse(fs.readFileSync(pkg, 'utf8').replace(/^\uFEFF/, ''));
+      return /qq-bridge/i.test(String(json.name ?? ''));
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 选完目录先验证内容：选中的目录本身不像就往下找一层子目录（常见操作是选中包含
+ * SnowLuma 的父目录），找到就自动改用子目录；都找不到就返回可读的错误。
+ */
+function resolvePickedDir(kind, picked) {
+  const test = kind === 'snowluma' ? isSnowlumaDir : isBridgeDir;
+  if (!picked || !fs.existsSync(picked)) {
+    return { ok: false, error: `目录不存在：${picked || '(空)'}` };
+  }
+  if (test(picked)) return { ok: true, path: picked, nested: false };
+  let entries = [];
+  try {
+    entries = fs.readdirSync(picked, { withFileTypes: true });
+  } catch {
+    entries = [];
+  }
+  const found = entries
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => path.join(picked, entry.name))
+    .find((child) => test(child));
+  if (found) return { ok: true, path: found, nested: true };
+  return {
+    ok: false,
+    error: kind === 'snowluma'
+      ? `这个文件夹里没找到 SnowLuma（需要包含 index.mjs；也可以直接选 E:\\SnowLuma 这一层）：${picked}`
+      : `这个文件夹里没找到 qq-bridge（需要包含 src\\bridge.js）：${picked}`
+  };
 }
 
 let config = loadConfig();
@@ -1054,6 +1272,43 @@ async function adoptServices() {
  * 「端口能不能连上」兜底 —— 兜底那层标 source='port-open'、pid=null，界面上显示「PID 未知」，
  * 并且**允许启动**（否则端口被别的程序占着时，用户会卡在「显示在跑但起不来」）。
  */
+let autoAdoptBusy = false;
+let lastAutoAdoptCheckAt = 0;
+
+// 设置里打开「自动接管外部服务」后：发现不是启动台拉起的 SnowLuma / qq-bridge 就自动接管一次。
+// 只认能识别出 PID 的外部实例（source 不是 port-open），避免把只有端口占用、认不出是谁的进程
+// 当成外部实例反复接管。两次检查至少隔 30 秒，接管期间用 autoAdoptBusy 单飞。
+async function maybeAutoAdopt() {
+  if (!config.autoAdopt) return;
+  if (autoAdoptBusy) return;
+  if (Date.now() - lastAutoAdoptCheckAt < 30000) return;
+  lastAutoAdoptCheckAt = Date.now();
+  const ownedRunning = (id) => Boolean(runtime[id]?.proc && isAlive(runtime[id].pid));
+  if (ownedRunning('snowluma') || ownedRunning('bridge')) return;
+  let snow = null;
+  let bridge = null;
+  try {
+    [snow, bridge] = await Promise.all([detectExternal('snowluma'), detectExternal('bridge')]);
+  } catch { return; }
+  const real = (ext) => Boolean(ext && ext.running && ext.source && ext.source !== 'port-open');
+  if (!real(snow) && !real(bridge)) return;
+  autoAdoptBusy = true;
+  try {
+    const names = [real(snow) ? 'SnowLuma' : '', real(bridge) ? 'qq-bridge' : ''].filter(Boolean).join(' / ');
+    pushLine('bridge', `⚙ 自动接管：检测到外部启动的 ${names}，正在接管…`);
+    const result = await adoptServices();
+    if (result.ok) {
+      pushLine('bridge', `⚙ 自动接管完成：${result.onebotReady ? 'OneBot 已就绪' : 'OneBot 端口还没起来，桥接会自己重连'}`);
+    } else {
+      pushLine('bridge', `⚠ 自动接管失败：${result.error || '未知原因'}`);
+    }
+  } catch (error) {
+    pushLine('bridge', `⚠ 自动接管失败：${error?.message ?? error}`);
+  } finally {
+    autoAdoptBusy = false;
+  }
+}
+
 async function detectExternal(id) {
   const cached = externalCache[id];
   if (cached?.pid && Date.now() - cached.at < 30000 && isAlive(cached.pid)) {
@@ -1236,6 +1491,7 @@ function snapshot() {
     services: { snowluma: serviceSnapshot('snowluma'), bridge: serviceSnapshot('bridge') },
     health: { ...health },
     ports: bridgePorts(),
+    theme: themePalette(config.appearance),
     hook: { uins: hookTargets(), configured: Boolean(webuiPasswordEnc), loading: Boolean(hookTask) },
     seqs: { ...seqs },
     external
@@ -1272,17 +1528,26 @@ function startupShortcutExists() {
 }
 
 function settingsSnapshot() {
+  const dirErrors = validateDirs(config);
   return {
     ok: true,
     version: VERSION,
     autoStartAll: Boolean(config.autoStartAll),
     autoRestart: Boolean(config.autoRestart),
+    startMinimized: Boolean(config.startMinimized),
+    autoAdopt: Boolean(config.autoAdopt),
     startWithWindows: startupShortcutExists(),
     installDir: path.resolve(HERE, '..'),
     dataDir: APP_DIR,
     startupShortcut: STARTUP_LNK,
     snowlumaDir: config.snowlumaDir,
-    bridgeDir: config.bridgeDir
+    bridgeDir: config.bridgeDir,
+    memoryDir: config.memoryDir || '',
+    setupDone: Boolean(config.setupDone),
+    appearance: normalizeAppearance(null, config.appearance),
+    // 首次引导要不要弹：没点过「完成」，或者两个目录现在不合法（被删/改坏了）都要弹。
+    needsSetup: !config.setupDone || dirErrors.length > 0,
+    dirErrors
   };
 }
 
@@ -1330,9 +1595,13 @@ async function applySettings(patch = {}) {
     }
   }
   const cfgPatch = {};
-  for (const key of ['autoStartAll', 'autoRestart']) {
+  for (const key of ['autoStartAll', 'autoRestart', 'setupDone', 'startMinimized', 'autoAdopt']) {
     if (typeof patch[key] === 'boolean') cfgPatch[key] = patch[key];
   }
+  for (const key of ['snowlumaDir', 'bridgeDir', 'memoryDir']) {
+    if (typeof patch[key] === 'string') cfgPatch[key] = patch[key];
+  }
+  if (patch.appearance && typeof patch.appearance === 'object') cfgPatch.appearance = patch.appearance;
   if (Object.keys(cfgPatch).length > 0) {
     const saved = saveConfig(cfgPatch);
     if (!saved.ok) errors.push(...(saved.errors ?? ['配置保存失败']));
@@ -1378,28 +1647,39 @@ async function bridgeFsRoot() {
 }
 
 async function readMemory() {
+  // 记忆根目录：设置里单独选了目录就用它；否则跟着桥接 config 的 fs.root 走。
+  const fsRoot = await bridgeFsRoot();
+  const memoryRoot = config.memoryDir || fsRoot;
   // 全局便签：state\memo.json（旧版/另一些桥接有，这份没有就显示空）。
   const memo = { ok: true, entries: [] };
-  const memoFile = path.join(config.bridgeDir, 'state', 'memo.json');
-  try {
-    const raw = JSON.parse((await fsp.readFile(memoFile, 'utf8')).replace(/^\uFEFF/, ''));
-    const list = Array.isArray(raw) ? raw : Array.isArray(raw?.entries) ? raw.entries : [];
-    memo.entries = list
-      .map((item) => ({
-        id: String(item?.id ?? ''),
-        text: String(item?.text ?? ''),
-        from: String(item?.from ?? ''),
-        at: Number(item?.at) || 0
-      }))
-      .filter((item) => item.text);
-  } catch { /* 没有便签文件不算错误 */ }
+  const memoCandidates = [];
+  if (config.memoryDir) memoCandidates.push(path.join(config.memoryDir, 'state', 'memo.json'));
+  memoCandidates.push(path.join(config.bridgeDir, 'state', 'memo.json'));
+  for (const memoFile of memoCandidates) {
+    try {
+      const raw = JSON.parse((await fsp.readFile(memoFile, 'utf8')).replace(/^\uFEFF/, ''));
+      const list = Array.isArray(raw) ? raw : Array.isArray(raw?.entries) ? raw.entries : [];
+      memo.entries = list
+        .map((item) => ({
+          id: String(item?.id ?? ''),
+          text: String(item?.text ?? ''),
+          from: String(item?.from ?? ''),
+          at: Number(item?.at) || 0
+        }))
+        .filter((item) => item.text);
+      break;
+    } catch { /* 没有便签文件不算错误 */ }
+  }
 
-  // 日记两个可能的家：新版在 fs.root\diary\*.md，旧版在 state\diary\*.txt。
+  // 日记几个可能的家：记忆根目录\diary\*.md、记忆根目录\*.md（扁平）、旧版 state\diary\*.txt。
   const dirs = [];
-  const fsRoot = await bridgeFsRoot();
-  if (fsRoot) dirs.push({ dir: path.join(fsRoot, 'diary'), ext: '.md', format: 'md' });
+  if (memoryRoot) {
+    dirs.push({ dir: path.join(memoryRoot, 'diary'), ext: '.md', format: 'md' });
+    if (config.memoryDir) dirs.push({ dir: config.memoryDir, ext: '.md', format: 'md' });
+  }
   dirs.push({ dir: path.join(config.bridgeDir, 'state', 'diary'), ext: '.txt', format: 'txt' });
 
+  const seen = new Set();
   const diaries = [];
   for (const { dir, ext, format } of dirs) {
     let names = [];
@@ -1407,6 +1687,8 @@ async function readMemory() {
     for (const name of names) {
       if (!name.toLowerCase().endsWith(ext)) continue;
       const file = path.join(dir, name);
+      if (seen.has(file)) continue;
+      seen.add(file);
       let stat;
       let content;
       try {
@@ -1423,7 +1705,7 @@ async function readMemory() {
     }
   }
   diaries.sort((a, b) => b.updatedAt - a.updatedAt);
-  return { ok: true, memo, diary: { ok: true, diaries } };
+  return { ok: true, memoryDir: memoryRoot || '', diaryRoot: config.memoryDir || '', memo, diary: { ok: true, diaries } };
 }
 
 // ── HTTP ────────────────────────────────────────────────────────────────────
@@ -1474,6 +1756,30 @@ async function pickDirectory({ title, initial }) {
   return { ok: true, path: r.stdout.trim() };
 }
 
+/** 原生「选择图片」对话框（背景图用，返回文件的绝对路径）。 */
+async function pickImageFile({ title, initial } = {}) {
+  const safeTitle = String(title ?? '选择背景图片').replace(/'/g, "''");
+  const safeInitial = String(initial ?? '').replace(/'/g, "''");
+  const script = [
+    'Add-Type -AssemblyName System.Windows.Forms | Out-Null',
+    '$owner = New-Object System.Windows.Forms.Form',
+    '$owner.TopMost = $true; $owner.ShowInTaskbar = $false; $owner.WindowState = "Minimized"',
+    '$owner.Show() | Out-Null',
+    '$dlg = New-Object System.Windows.Forms.OpenFileDialog',
+    `$dlg.Title = '${safeTitle}'`,
+    '$dlg.Filter = "图片 (*.png;*.jpg;*.jpeg;*.webp;*.bmp;*.gif)|*.png;*.jpg;*.jpeg;*.webp;*.bmp;*.gif|所有文件 (*.*)|*.*"',
+    safeInitial ? `$dlg.InitialDirectory = '${safeInitial}'` : '',
+    'if ($dlg.ShowDialog($owner) -eq "OK") { [Console]::Out.Write($dlg.FileName) }',
+    '$owner.Close()'
+  ].filter(Boolean).join('; ');
+  const encoded = Buffer.from(script, 'utf16le').toString('base64');
+  const powershell = fs.existsSync('C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe')
+    ? 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe'
+    : 'powershell.exe';
+  const r = await execFileAsync(powershell, ['-NoProfile', '-STA', '-EncodedCommand', encoded], { timeout: 300000 });
+  return { ok: true, path: r.stdout.trim() };
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://127.0.0.1');
   try {
@@ -1498,6 +1804,18 @@ const server = http.createServer(async (req, res) => {
       }
       return;
     }
+    // 关于页打赏二维码（本地图片，不联网）。
+    if (req.method === 'GET' && url.pathname === '/donate.png') {
+      try {
+        const buf = await fsp.readFile(path.join(HERE, 'donate.png'));
+        res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'public, max-age=3600' });
+        res.end(buf);
+      } catch {
+        res.writeHead(404, { 'content-type': 'text/plain' });
+        res.end('not found');
+      }
+      return;
+    }
     if (req.method === 'GET' && url.pathname === '/api/ping') {
       sendJson(res, { ok: true, name: 'qqbot-launcher', version: VERSION, pid: process.pid, port: actualPort });
       return;
@@ -1509,6 +1827,27 @@ const server = http.createServer(async (req, res) => {
     // 设置弹窗用：开关状态 + 路径信息（只读展示）。
     if (req.method === 'GET' && url.pathname === '/api/settings') {
       sendJson(res, settingsSnapshot());
+      return;
+    }
+    // 背景图片：数据目录里的 wallpaper.*；没配或文件丢了就 404，前端会退回预设。
+    if (req.method === 'GET' && url.pathname === '/api/wallpaper') {
+      const wanted = String(url.searchParams.get('f') ?? '');
+      let target = '';
+      if (/^wallpaper\.(png|jpe?g|webp|bmp|gif)$/i.test(wanted)) target = path.join(APP_DIR, wanted);
+      try {
+        if (!target || !fs.existsSync(target)) {
+          const found = fs.readdirSync(APP_DIR).find((name) => /^wallpaper\.(png|jpe?g|webp|bmp|gif)$/i.test(name));
+          if (found) target = path.join(APP_DIR, found);
+        }
+        if (!target || !fs.existsSync(target)) { res.writeHead(404, { 'content-type': 'text/plain' }); res.end('no wallpaper'); return; }
+        const ext = path.extname(target).toLowerCase();
+        const type = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : ext === '.gif' ? 'image/gif' : ext === '.bmp' ? 'image/bmp' : 'image/jpeg';
+        const buf = await fsp.readFile(target);
+        res.writeHead(200, { 'content-type': type, 'cache-control': 'no-cache' });
+        res.end(buf);
+      } catch {
+        res.writeHead(404, { 'content-type': 'text/plain' }); res.end('wallpaper error');
+      }
       return;
     }
     // 只读：把她的日记和便签给界面看；没有写接口，刻意如此。
@@ -1608,6 +1947,27 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, { ok: first.ok || second.ok, results: { snowluma: first, bridge: second } });
         return;
       }
+      if (url.pathname === '/api/restart-all') {
+        const now = await snapshotAsync();
+        const anyRunning = Boolean(now.services?.snowluma?.running || now.services?.bridge?.running);
+        if (!anyRunning) {
+          sendJson(res, { ok: false, error: 'SnowLuma 和 qq-bridge 均未启动，点「一键启动」即可' }, 400);
+          return;
+        }
+        await stopService('bridge');
+        await stopService('snowluma');
+        const first = await startService('snowluma');
+        if (first.ok && hookTargets().length > 0) {
+          pushLine('snowluma', '⚙ 一键重启：等 SnowLuma 的 OneBot 起来再启动桥接…');
+          await Promise.race([ensureSnowlumaHook('一键重启'), new Promise((resolve) => setTimeout(resolve, 30000))]);
+          await waitPortOpen(bridgePorts().onebotHttp, 5000);
+        } else {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+        const second = await startService('bridge');
+        sendJson(res, { ok: first.ok || second.ok, results: { snowluma: first, bridge: second } });
+        return;
+      }
       if (url.pathname === '/api/stop-all') {
         const second = await stopService('bridge');
         const first = await stopService('snowluma');
@@ -1662,8 +2022,25 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, result, result.ok ? 200 : 400);
         return;
       }
+      if (url.pathname === '/api/pick-image') {
+        const picked = await pickImageFile({ title: body.title });
+        if (!picked.ok || !picked.path) { sendJson(res, picked); return; }
+        const ext = path.extname(picked.path).toLowerCase();
+        if (!/^\.(png|jpe?g|webp|bmp|gif)$/.test(ext)) { sendJson(res, { ok: false, error: '不支持的图片格式' }, 400); return; }
+        ensureAppDir();
+        for (const name of fs.readdirSync(APP_DIR)) {
+          if (/^wallpaper\./i.test(name)) { try { fs.rmSync(path.join(APP_DIR, name)); } catch { /* 文件被占用就先留着 */ } }
+        }
+        const image = 'wallpaper' + (ext === '.jpeg' ? '.jpg' : ext);
+        fs.copyFileSync(picked.path, path.join(APP_DIR, image));
+        sendJson(res, { ok: true, image, url: '/api/wallpaper?f=' + encodeURIComponent(image) });
+        return;
+      }
       if (url.pathname === '/api/pick-dir') {
-        sendJson(res, await pickDirectory({ title: body.title, initial: body.initial }));
+        const picked = await pickDirectory({ title: body.title, initial: body.initial });
+        if (!picked.ok || !picked.path) { sendJson(res, picked); return; }
+        const kind = body.kind === 'snowluma' || body.kind === 'bridge' ? body.kind : '';
+        sendJson(res, kind ? resolvePickedDir(kind, picked.path) : picked);
         return;
       }
       if (url.pathname === '/api/open') {
@@ -1693,12 +2070,26 @@ const server = http.createServer(async (req, res) => {
       if (url.pathname === '/api/quit') {
         // 「退出」= 结束所有进程，所以默认就停服务；只有显式传 stopAll:false 才保留服务。
         // （早期版本默认不停，导致托盘右键「退出（结束所有进程）」其实留着两个服务在跑。）
+        // body.pid 是发起退出的一方看到的服务端实例。托盘先退出界面、再由后台去停服，
+        // 如果用户点完退出马上又双击重开，延迟到达的退出请求绝不能误杀新起的实例。
+        const targetPid = Number(body.pid) || 0;
+        if (targetPid && targetPid !== process.pid) {
+          sendJson(res, { ok: false, error: `pid 不匹配（当前 ${process.pid}，请求 ${targetPid}）` }, 409);
+          return;
+        }
+        try { fs.writeFileSync(path.join(APP_DIR, 'quitting.flag'), `${Date.now()} ${process.pid}`, 'utf8'); } catch { }
         if (body.stopAll !== false) {
           await stopService('bridge');
           await stopService('snowluma');
         }
         sendJson(res, { ok: true });
         setTimeout(() => process.exit(0), 300);
+        return;
+      }
+      if (url.pathname === '/api/quit-all') {
+        // 页面「结束进程」：交给托盘走完整退出（托盘看到 quit.request 后会停服务、写 exit.request 让宿主退场）。
+        try { fs.writeFileSync(path.join(APP_DIR, 'quit.request'), `${Date.now()} ${process.pid}`, 'utf8'); } catch { }
+        sendJson(res, { ok: true });
         return;
       }
       sendJson(res, { ok: false, error: '未知接口' }, 404);
@@ -1772,6 +2163,8 @@ function resumeExternalTails() {
 
 async function main() {
   ensureAppDir();
+  // 新实例启动：上一次的「退出中」标记作废，否则入口会以为旧实例还没退完而白等。
+  try { fs.rmSync(path.join(APP_DIR, 'quitting.flag'), { force: true }); } catch {}
   const startPort = Number(process.env.LAUNCHER_PORT || config.port) || DEFAULT_PORT;
   // 单实例：端口被占时先问一句「是不是启动台自己」——是就安静退出，让 launch.mjs 去开窗口，
   // 而不是在 3211 上再起一个（两个界面同时管同一批进程，状态会互相覆盖）。
@@ -1795,7 +2188,7 @@ async function main() {
   }
   fs.writeFileSync(path.join(APP_DIR, 'launcher.pid'), String(process.pid), 'utf8');
   fs.writeFileSync(path.join(APP_DIR, 'launcher.port'), String(actualPort), 'utf8');
-  pushLine('bridge', `启动台已就绪：http://127.0.0.1:${actualPort}（窗口关掉不影响服务，点「退出并停止」才全停）`);
+  pushLine('bridge', `启动台已就绪：http://127.0.0.1:${actualPort}`);
   resumeExternalTails();
 
   // 预热外部实例探测：第一屏 /api/state 就能带上缓存结果，不用等 2 秒。
@@ -1807,8 +2200,10 @@ async function main() {
   // 后台轮询：每 3 秒刷新健康度并广播，UI 不需要自己算。
   setInterval(() => {
     void pollHealth().then(() => broadcastState()).catch(() => {});
+    void maybeAutoAdopt().catch(() => {});
   }, POLL_MS);
   void pollHealth().then(() => broadcastState()).catch(() => {});
+  void maybeAutoAdopt().catch(() => {});
 
   // 自动启动：等 DSH/端口探测第一轮完成再拉，避免刚起来就判定失败。
   if (config.autoStartAll) {
@@ -1845,5 +2240,19 @@ async function main() {
   process.on('SIGTERM', shutdown);
   process.on('message', (msg) => { if (msg === 'shutdown') shutdown(); });
 }
+
+// 常驻进程兜底：未捕获的异常/rejection 写进 crash 日志后继续跑，
+// 不要因为一个异步回调炸掉整个服务端（界面/托盘会瞬间全部失联）。
+function logCrash(kind, error) {
+  try {
+    fs.appendFileSync(
+      path.join(APP_DIR, 'server-crash.log'),
+      `[${new Date().toISOString()}] ${kind}: ${error?.stack || error}\n`,
+      'utf8'
+    );
+  } catch { /* 日志都写不了就算了，别二次抛错 */ }
+}
+process.on('uncaughtException', (error) => logCrash('uncaughtException', error));
+process.on('unhandledRejection', (error) => logCrash('unhandledRejection', error));
 
 void main();

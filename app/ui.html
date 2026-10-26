@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>SnowBridge Launcher v0.0.1</title>
+<title>SnowBridge Launcher</title>
 <link rel="icon" type="image/png" href="/icon.png" />
 <link rel="alternate icon" href="/favicon.ico" />
 <style>
@@ -16,15 +16,33 @@
     --muted: #8b93a3;
     --green: #3ddc84;
     --red: #ff5d5d;
+    --danger-bg: rgba(255,93,93,0.10);
+    --danger-border: #7a3333;
+    --danger-text: #ffbdbd;
+    --danger-hover: rgba(255,93,93,0.18);
     --amber: #ffc247;
     --blue: #59a7ff;
     --radius: 14px;
+    --accent: #2f6fd0;
+    --accent-soft: #1f6feb26;
+    --accent-soft-hover: #1f6feb3d;
+    --bg-deep: #0b0e13;
+    --input-bg: #0e1117;
+    --hover: #232936;
+    --hover-line: #3a4256;
+    --nav-active: #1c2331;
+    --hint-bg: #212836;
+    --switch-bg: #2a3140;
+    --thumb: #dfe6f2;
+    --muted-2: #4b5262;
+    --app-bg: radial-gradient(1200px 600px at 20% -10%, #1b2331 0%, var(--bg) 55%);
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
   body {
     margin: 0;
-    background: radial-gradient(1200px 600px at 20% -10%, #1b2331 0%, var(--bg) 55%);
+    background: var(--app-bg);
+    background-attachment: fixed;
     color: var(--text);
     font: 14px/1.5 "Segoe UI", "Microsoft YaHei UI", system-ui, sans-serif;
     display: flex;
@@ -90,7 +108,7 @@
     padding: 5px 11px; border-radius: 999px; font-size: 12px; color: var(--muted);
     white-space: nowrap;
   }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: #4b5262; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted-2); }
   .dot.ok { background: var(--green); box-shadow: 0 0 8px rgba(61,220,132,.55); }
   .dot.bad { background: var(--red); }
   .dot.warn { background: var(--amber); }
@@ -107,10 +125,7 @@
   .state { font-size: 12px; color: var(--muted); }
   .meta { display: flex; gap: 14px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
   .meta b { color: var(--text); font-weight: 550; }
-  .path {
-    display: flex; gap: 8px;
-    background: #0e1117; border: 1px solid var(--line); border-radius: 10px; padding: 6px 8px;
-  }
+  .path { display: flex; gap: 8px; }
   .path code {
     flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     font-size: 12px; color: var(--muted); line-height: 26px;
@@ -121,11 +136,13 @@
     background: var(--panel-2); border: 1px solid var(--line);
     padding: 7px 14px; border-radius: 10px; transition: .15s;
   }
-  button:hover:not(:disabled) { border-color: #3a4256; background: #232936; }
+  button:hover:not(:disabled) { border-color: var(--hover-line); background: var(--hover); }
   button:disabled { opacity: .45; cursor: not-allowed; }
-  button.primary { background: #1f6feb26; border-color: #2f6fd0; color: #cfe2ff; }
-  button.primary:hover:not(:disabled) { background: #1f6feb3d; }
-  button.danger { background: #ff5d5d14; border-color: #7a3333; color: #ffbdbd; }
+  button.primary { background: var(--accent-soft); border-color: var(--accent); color: var(--text); }
+  button.primary:hover:not(:disabled) { background: var(--accent-soft-hover); }
+  button.danger { background: var(--danger-bg); border-color: var(--danger-border); color: var(--danger-text); }
+  button.danger:hover:not(:disabled) { background: var(--danger-hover); border-color: var(--danger-border); }
+  button.danger:disabled { opacity: .62; }
   button.ghost { background: transparent; }
   .toolbar { display: flex; align-items: center; gap: 8px; padding: 0 2px; }
   .tabs { display: flex; gap: 6px; }
@@ -133,13 +150,13 @@
     padding: 6px 12px; border-radius: 9px 9px 0 0; font-size: 13px; color: var(--muted);
     border: 1px solid transparent; border-bottom: none; cursor: pointer; user-select: none;
   }
-  .tab.active { color: var(--text); background: #0b0e13; border-color: var(--line); }
+  .tab.active { color: var(--text); background: var(--bg-deep); border-color: var(--line); }
   .tab .badge { font-size: 11px; color: var(--amber); margin-left: 6px; }
   .logwrap {
     position: relative;
     flex: 1; min-height: 180px; display: flex; flex-direction: column;
     border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden;
-    background: #0b0e13;
+    background: var(--bg-deep);
   }
   #log {
     flex: 1; margin: 0; padding: 10px 12px; overflow: auto; white-space: pre-wrap; word-break: break-word;
@@ -184,8 +201,8 @@
     55% { opacity: 1; transform: translateY(-2.5px) scale(1.05); }
     100% { opacity: 1; transform: translateY(0) scale(1); }
   }
-  #log .l-err { color: #ff8b8b; }
-  #log .l-ok { color: #7ee2a8; }
+  #log .l-err { color: var(--log-err); }
+  #log .l-ok { color: var(--log-ok); }
   #log .l-warn { color: var(--amber); }
   #log .l-info { color: var(--blue); }
   #log .l-dim { color: var(--muted); }
@@ -194,39 +211,69 @@
     border-top: 1px solid var(--line); font-size: 12.5px; color: var(--muted); flex-wrap: wrap;
   }
   .switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
-  .switch input { appearance: none; width: 36px; height: 20px; border-radius: 999px; background: #2a3140; position: relative; transition: .18s; cursor: pointer; }
-  .switch input:checked { background: #2f6fd0; }
+  .switch input { appearance: none; width: 36px; height: 20px; border-radius: 999px; background: var(--switch-bg); position: relative; transition: .18s; cursor: pointer; }
+  .switch input:checked { background: var(--accent); }
   .switch input::after {
     content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
-    border-radius: 50%; background: #dfe6f2; transition: .18s;
+    border-radius: 50%; background: var(--thumb); transition: .18s;
   }
   .switch input:checked::after { transform: translateX(16px); }
   #toast {
-    position: fixed; right: 20px; bottom: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 50;
+    position: fixed; right: 20px; bottom: 76px; display: flex; flex-direction: column; gap: 8px; z-index: 50;
     max-width: 420px;
   }
   .toast {
-    background: #212836; border: 1px solid var(--line); border-left: 3px solid var(--blue);
+    background: var(--hint-bg); border: 1px solid var(--line); border-left: 3px solid var(--blue);
     padding: 10px 14px; border-radius: 10px; font-size: 13px; box-shadow: 0 10px 30px #0008;
     animation: in .18s ease-out;
   }
   .toast.err { border-left-color: var(--red); }
   .toast.ok { border-left-color: var(--green); }
   @keyframes in { from { opacity: 0; transform: translateY(6px); } }
-  .modal { position: fixed; inset: 0; background: #0008; display: flex; align-items: center; justify-content: center; z-index: 60; }
+  .path-label { color: var(--muted); white-space: nowrap; margin-right: 2px; }
+  .preset-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 4px 0 14px; }
+  .preset {
+    appearance: none; border: 1px solid var(--line); border-radius: 12px; padding: 0;
+    background: transparent; color: var(--muted); cursor: pointer; overflow: hidden;
+    display: flex; flex-direction: column; transition: border-color .18s, transform .18s;
+  }
+  .preset:hover { border-color: var(--hover-line); transform: translateY(-1px); }
+  .preset .swatch { height: 46px; width: 100%; display: block; }
+  .preset span.label { padding: 6px 8px; font-size: 12px; }
+  .preset.active { border-color: var(--accent); color: var(--text); box-shadow: 0 0 0 1px var(--accent); }
+  input[type="color"] {
+    width: 46px; height: 28px; padding: 0; border: 1px solid var(--line);
+    border-radius: 8px; background: var(--input-bg); cursor: pointer;
+  }
+  body.has-wallpaper { background-attachment: fixed; }
+  .modal { position: fixed; inset: 0; background: #0000; display: flex; align-items: center; justify-content: center; z-index: 60; transition: background .22s ease; }
+  /* 弹窗打开时最上方一条不可见拖拽带：整窗被遮罩盖住时也能拖窗口。 */
+  .dragstrip { display: none; position: fixed; left: 0; right: 0; top: 0; height: 38px; z-index: 90; }
+  body.shell.modal-open .dragstrip { display: block; }
   .modal[hidden] { display: none; }
+  .modal.open { background: #0009; backdrop-filter: blur(7px) saturate(1.08); -webkit-backdrop-filter: blur(7px) saturate(1.08); }
+  .modal.closing { background: #0000; backdrop-filter: blur(0); -webkit-backdrop-filter: blur(0); }
+  @keyframes page-in { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: none; } }
+  @keyframes page-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateX(-14px); } }
   .modal-box {
     width: min(940px, 92vw); height: min(740px, 86vh); display: flex; flex-direction: column;
-    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    background: var(--modal-bg); border: 1px solid var(--line); border-radius: var(--radius);
     box-shadow: 0 20px 60px #000a; overflow: hidden;
+    transform: translateY(12px) scale(.966); opacity: 0;
+    transition: transform .38s cubic-bezier(.16,1,.3,1), opacity .24s ease;
+  }
+  .modal.open .modal-box { transform: none; opacity: 1; }
+  .modal.closing .modal-box {
+    transform: translateY(8px) scale(.986); opacity: 0;
+    transition: transform .2s cubic-bezier(.4,0,1,1), opacity .16s ease;
   }
   .modal-top { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
   .memory-body { flex: 1; overflow: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 18px; }
   .memory-body h3 { margin: 0 0 8px; font-size: 13px; color: var(--muted); font-weight: 600; }
   .memory-list { display: flex; flex-direction: column; gap: 10px; }
-  .memo-item { background: #0e1117; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font-size: 13px; }
+  .memo-item { background: var(--input-bg); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font-size: 13px; }
   .memo-item .who { display: block; color: var(--muted); font-size: 12px; margin-top: 4px; }
-  .diary-item { background: #0e1117; border: 1px solid var(--line); border-radius: 10px; }
+  .diary-item { background: var(--input-bg); border: 1px solid var(--line); border-radius: 10px; }
   .diary-item summary { cursor: pointer; padding: 8px 10px; font-size: 13px; color: var(--blue); }
   .diary-item pre {
     margin: 0; padding: 4px 12px 12px; white-space: pre-wrap; word-break: break-word;
@@ -234,7 +281,7 @@
     color: #c9d1d9; max-height: 340px; overflow: auto;
   }
   .update-body { flex: 1; overflow: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
-  .update-row { background: #0e1117; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+  .update-row { background: var(--input-bg); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
   .update-row .head { display: flex; align-items: center; gap: 10px; font-weight: 600; }
   .update-row .versions { display: flex; gap: 18px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
   .update-row .versions b { color: var(--text); font-weight: 600; }
@@ -253,17 +300,88 @@
   .settings-text b { font-size: 13.5px; font-weight: 600; }
   .settings-text small { color: var(--muted); font-size: 12px; }
   .settings-row .switch { margin-left: auto; }
+.settings-row.settings-first { border-bottom: 0; }
+.settings-subrow { padding-left: 22px; }
   .settings-hint {
     margin-top: 10px; padding: 10px 12px; font-size: 12.5px; line-height: 1.6; color: var(--muted);
-    background: #0e1117; border: 1px solid var(--line); border-radius: 10px;
+    background: var(--input-bg); border: 1px solid var(--line); border-radius: 10px;
   }
   .settings-sep { margin: 14px 0 2px; height: 1px; background: #ffffff0d; }
   .settings-row .ghost { margin-left: auto; }
   .settings-meta { margin-top: 10px; font-size: 11.5px; line-height: 1.7; color: #7c8698; white-space: pre-wrap; word-break: break-all; }
+.about { display: flex; gap: 18px; align-items: center; padding: 6px 2px 4px; }
+  /* 关于页图标：外层容器裁掉四周 7px，把图标自身的浅色外圈去掉。 */
+  .about-icon { width: 96px; height: 96px; border-radius: 22px; flex: none; overflow: hidden; }
+  .about-icon img { display: block; width: calc(100% + 14px); height: calc(100% + 14px); margin: -7px; object-fit: cover; }
+  html[data-light="1"] .about-icon { box-shadow: none; }
+.about-main { min-width: 0; display: flex; flex-direction: column; gap: 10px; padding-top: 2px; }
+.about-name { font-size: 26px; font-weight: 650; letter-spacing: .2px; }
+.about-rows { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; }
+.about-row { display: flex; gap: 10px; align-items: baseline; }
+.about-row span { width: 64px; flex: none; color: var(--muted); }
+.about-row b { font-weight: 500; color: var(--text); word-break: break-all; }
+#setpage-about.active { display: flex; flex-direction: column; }
+.about-foot { margin-top: auto; padding: 18px 0 4px; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 12px; color: var(--muted); letter-spacing: .3px; }
+  .about-credit { color: inherit; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; transition: color .16s ease; }
+  .about-credit:hover { color: var(--accent); }
+  #closeask .modal-box { width: min(420px, 90vw); height: auto; }
+  .closeask-body { padding: 22px 20px 18px; display: flex; flex-direction: column; gap: 20px; }
+  .closeask-title { text-align: center; font-size: 21px; font-weight: 600; letter-spacing: .5px; color: var(--text); }
+  #closeask .modal-box { width: min(380px, 88vw); height: auto; }
+  .closeask-actions { display: flex; justify-content: center; gap: 10px; }
+  .closeask-actions .danger { color: var(--danger-text); border-color: var(--danger-border); background: var(--danger-bg); }
+  .closeask-check { display: flex; justify-content: center; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); cursor: pointer; user-select: none; }
+  .closeask-check input { width: 14px; height: 14px; accent-color: var(--accent); }
+.donate { position: relative; width: 23px; height: 23px; padding: 0; border-radius: 50%; border: 0; background: #28c76f; color: #fff; font-size: 11px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: transform .18s cubic-bezier(.22,1,.36,1), background .18s, box-shadow .25s; box-shadow: 0 3px 10px rgba(40,199,111,.32); }
+.donate::after { content: ""; position: absolute; inset: -3px; border-radius: 50%; border: 1.5px solid rgba(40,199,111,.55); opacity: 0; animation: donate-ping 2.6s cubic-bezier(.22,1,.36,1) infinite; }
+.donate:hover { transform: translateY(-2px) scale(1.07); background: #2ee07c; box-shadow: 0 8px 20px rgba(40,199,111,.45); }
+.donate:active { transform: scale(.93); }
+.donate:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@keyframes donate-ping { 0% { opacity: .5; transform: scale(.85); } 70% { opacity: 0; transform: scale(1.5); } 100% { opacity: 0; transform: scale(1.5); } }
+#donate .modal-box { width: min(360px, 92vw); height: auto; }
+.donate-body { display: flex; flex-direction: column; align-items: center; padding: 2px 20px 22px; }
+.donate-title { font-size: 22px; font-weight: 650; margin: 2px 0 14px; }
+.donate-qr { width: 244px; height: 244px; object-fit: contain; border-radius: 14px; background: #fff; padding: 8px; opacity: 0; transform: translateY(12px) scale(.95); transition: opacity .42s cubic-bezier(.16,1,.3,1), transform .42s cubic-bezier(.16,1,.3,1); }
+#donate.open .donate-qr { opacity: 1; transform: none; }
+.donate-sub { margin-top: 12px; font-size: 12px; color: var(--muted); letter-spacing: .5px; }
+@media (prefers-reduced-motion: reduce) { .donate::after { animation: none; } }
+  /* ── 设置：左侧分页导航 + 滑动切换 ───────────────────────────────── */
+  #settings .modal-box { width: min(760px, 94vw); height: min(560px, 86vh); }
+  .settings-layout { display: flex; flex: 1; min-height: 0; }
+  .settings-nav { width: 152px; flex: 0 0 152px; padding: 12px 10px; border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; }
+  .settings-nav button {
+    appearance: none; border: 0; background: transparent; color: var(--muted); text-align: left;
+    padding: 8px 10px; border-radius: 8px; font-size: 13px; cursor: pointer;
+    transition: background .18s ease, color .18s ease, transform .22s cubic-bezier(.22,1,.36,1);
+  }
+  .settings-nav button:hover { background: #ffffff08; color: var(--text); }
+  .settings-nav button.active { background: var(--nav-active); color: var(--text); transform: translateX(2px); }
+  .settings-pages { flex: 1; min-width: 0; position: relative; }
+  .settings-page { display: none; position: absolute; inset: 0; overflow: auto; padding: 12px 18px 18px; }
+  .settings-page.active { display: block; animation: page-in .32s cubic-bezier(.16,1,.3,1); }
+  .settings-page.leaving { display: block; animation: page-out .18s cubic-bezier(.4,0,1,1) forwards; pointer-events: none; }
+  .settings-path { margin-left: auto; display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .settings-path code {
+    max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    background: var(--input-bg); border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px;
+    font-size: 12px; color: var(--muted);
+  }
+  /* ── 首次运行设置向导 ─────────────────────────────────────────────── */
+  #onboarding .modal-box { width: min(640px, 94vw); height: auto; max-height: 86vh; }
+  .onboarding-body { padding: 8px 20px 18px; display: flex; flex-direction: column; gap: 14px; }
+  .onboarding-body .settings-row { cursor: default; }
+  .onboarding-actions { display: flex; align-items: center; gap: 10px; padding-top: 4px; }
+  .onboarding-errors { margin-top: 0; color: var(--red); border-color: #7c2d2d; }
+  /* ── 记忆目录 ─────────────────────────────────────────────────────── */
+  .memory-dirbar { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+  .memory-dirbar code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: var(--input-bg); border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; }
+  .path code { cursor: default; }
+  .memory-dir-hint { flex: none; white-space: nowrap; color: var(--muted); opacity: .8; }
   .empty { color: var(--muted); }
 </style>
 </head>
 <body>
+<div class="dragstrip" id="dragstrip" aria-hidden="true"></div>
 <div id="titlebar">
   <div class="row" id="shell-controls" aria-label="窗口控制">
     <button class="wbtn" id="win-settings" title="设置" aria-label="设置">
@@ -290,7 +408,7 @@
   <span class="spacer"></span>
   <div class="row">
     <button class="primary" id="btn-start-all">一键启动</button>
-    <button id="btn-adopt">接管现有服务</button>
+    <button id="btn-restart-all">一键重启</button>
     <button class="danger" id="btn-stop-all">全部停止</button>
   </div>
 </header>
@@ -305,9 +423,8 @@
         <span class="spacer"></span>
         <span class="meta"><span>PID <b data-pid>-</b></span><span>运行 <b data-uptime>-</b></span></span>
       </div>
-      <div class="path">
-        <code data-dir>未绑定</code>
-        <button class="ghost" data-pick="snowluma">选择目录</button>
+      <div class="path" title="只读预览；要换目录去「设置 → 目录」">
+        <span class="path-label">目录：</span><code data-dir aria-readonly="true">未绑定</code>
       </div>
       <div class="row">
         <button class="primary" data-start="snowluma">启动</button>
@@ -325,9 +442,8 @@
         <span class="spacer"></span>
         <span class="meta"><span>PID <b data-pid>-</b></span><span>运行 <b data-uptime>-</b></span></span>
       </div>
-      <div class="path">
-        <code data-dir>未绑定</code>
-        <button class="ghost" data-pick="bridge">选择目录</button>
+      <div class="path" title="只读预览；要换目录去「设置 → 目录」">
+        <span class="path-label">目录：</span><code data-dir aria-readonly="true">未绑定</code>
       </div>
       <div class="row">
         <button class="primary" data-start="bridge">启动</button>
@@ -359,10 +475,7 @@
 </main>
 
 <footer>
-  <label class="switch"><input type="checkbox" id="auto-start" />打开 SnowBridge Launcher 时自动启动服务</label>
-  <label class="switch"><input type="checkbox" id="auto-restart" />意外退出自动重启</label>
   <span class="spacer"></span>
-  <span>关闭窗口不会停服务</span>
   <button class="danger" id="btn-quit">退出并停止</button>
 </footer>
 
@@ -373,6 +486,11 @@
       <span class="state" id="memory-note">只读</span>
       <span class="spacer"></span>
       <button class="ghost" id="memory-close">关闭</button>
+    </div>
+    <div class="memory-dirbar" title="记忆目录在「设置 → 目录」里修改">
+      <span>目录</span>
+      <code id="memory-dir">—</code>
+      <span class="memory-dir-hint">设置 → 目录</span>
     </div>
     <div class="memory-body">
       <section>
@@ -401,34 +519,161 @@
 </div>
 
 <div id="settings" class="modal" hidden>
-  <div class="modal-box" style="width: min(560px, 92vw); height: auto; max-height: 84vh;">
+  <div class="modal-box">
     <div class="modal-top">
       <span class="card-title">设置</span>
-      <span class="state" id="settings-note"></span>
       <span class="spacer"></span>
       <button class="ghost" id="settings-close">关闭</button>
     </div>
-    <div class="settings-body">
-      <label class="settings-row">
-        <span class="settings-text"><b>开机自动启动</b><small>登录 Windows 后自动进托盘，不弹窗口</small></span>
-        <span class="switch"><input type="checkbox" id="set-startwithwindows" /></span>
-      </label>
-      <label class="settings-row">
-        <span class="settings-text"><b>打开启动台时自动启动服务</b><small>启动台起来后自动拉起 SnowLuma 和 qq-bridge</small></span>
-        <span class="switch"><input type="checkbox" id="set-autostartall" /></span>
-      </label>
-      <label class="settings-row">
-        <span class="settings-text"><b>服务意外退出后自动重启</b><small>被启动台管理的服务崩了会在 3 秒后重来一次</small></span>
-        <span class="switch"><input type="checkbox" id="set-autorestart" /></span>
-      </label>
-      <div class="settings-hint">关闭窗口只是收进托盘，服务继续在后台运行；要连服务一起停，用右下角「退出并停止」。</div>
-      <div class="settings-sep"></div>
-      <div class="settings-row">
-        <span class="settings-text"><b>版本与更新</b><small>检查 SnowLuma、qq-bridge 和本软件有没有新版本</small></span>
-        <button class="ghost" id="set-check-updates">检查更新</button>
+    <div class="settings-layout">
+      <nav class="settings-nav" role="tablist" aria-label="设置分类">
+        <button type="button" data-setpage="general" class="active">常规</button>
+        <button type="button" data-setpage="appearance">外观</button>
+        <button type="button" data-setpage="paths">目录</button>
+        <button type="button" data-setpage="updates">版本与更新</button>
+        <button type="button" data-setpage="about">关于</button>
+      </nav>
+      <div class="settings-pages">
+        <section class="settings-page active" id="setpage-general" data-page="general">
+          <label class="settings-row settings-first">
+            <span class="settings-text"><b>开机自启动</b><small>开机后自动启动 SnowBridge Launcher</small></span>
+            <span class="switch"><input type="checkbox" id="set-startwithwindows" /></span>
+          </label>
+          <label class="settings-row settings-subrow">
+            <span class="settings-text"><b>启动 SnowBridge Launcher 时最小化到系统栏</b></span>
+            <span class="switch"><input type="checkbox" id="set-startminimized" /></span>
+          </label>
+          <label class="settings-row">
+            <span class="settings-text"><b>自动启动服务</b><small>启动自动拉起 SnowLuma 和 qq-bridge</small></span>
+            <span class="switch"><input type="checkbox" id="set-autostartall" /></span>
+          </label>
+          <label class="settings-row">
+            <span class="settings-text"><b>服务自动重启</b><small>被启动台管理的服务意外退出后会自动重启</small></span>
+            <span class="switch"><input type="checkbox" id="set-autorestart" /></span>
+          </label>
+          <label class="settings-row">
+            <span class="settings-text"><b>自动接管外部服务</b><small>检测到SnowLuma/qq-bridge 时自动接管</small></span>
+            <span class="switch"><input type="checkbox" id="set-autoadopt" /></span>
+          </label>
+          <label class="settings-row">
+            <span class="settings-text"><b>关闭窗口时后台运行</b><small>关闭窗口后转为后台运行</small></span>
+            <span class="switch"><input type="checkbox" id="set-closebg" /></span>
+          </label>
+        </section>
+        <section class="settings-page" id="setpage-appearance" data-page="appearance">
+          <div class="preset-grid" id="preset-grid"></div>
+          <div class="settings-row">
+            <span class="settings-text"><b>自定义颜色</b></span>
+            <input type="color" id="set-color" value="#11151d" aria-label="自定义主色" />
+          </div>
+          <div class="settings-row">
+            <span class="settings-text"><b>背景图片</b><small>支持 png / jpg / webp，会铺满整个窗口并压暗以保证可读性</small></span>
+            <span class="settings-path">
+              <button class="ghost" id="set-image">选择图片</button>
+              <button class="ghost" id="clear-image">清除图片</button>
+            </span>
+          </div>
+        </section>
+        <section class="settings-page" id="setpage-paths" data-page="paths">
+          <div class="settings-row">
+            <span class="settings-text"><b>SnowLuma 目录</b><small>包含 index.mjs 的目录</small></span>
+            <span class="settings-path"><code id="set-dir-snowluma">未绑定</code><button class="ghost" data-pick="snowluma">选择目录</button></span>
+          </div>
+          <div class="settings-row">
+            <span class="settings-text"><b>qq-bridge 目录</b><small>包含 src\bridge.js 的目录</small></span>
+            <span class="settings-path"><code id="set-dir-bridge">未绑定</code><button class="ghost" data-pick="bridge">选择目录</button></span>
+          </div>
+          <div class="settings-row">
+            <span class="settings-text"><b>记忆目录</b><small>留空时跟随 qq-bridge 的 fs.root；日记和便签都从这里读</small></span>
+            <span class="settings-path">
+              <code id="set-dir-memory">跟随桥接（默认）</code>
+              <button class="ghost" data-pick="memory">选择目录</button>
+              <button class="ghost" id="set-memory-reset" title="清空记忆目录，恢复跟随 qq-bridge 的 fs.root">恢复默认</button>
+            </span>
+          </div>
+          <div class="settings-hint">改完立即生效；正在运行的服务要重启一次才会用新目录。</div>
+        </section>
+        <section class="settings-page" id="setpage-updates" data-page="updates">
+          <div class="settings-row">
+            <span class="settings-text"><b>版本与更新</b><small>检查 SnowLuma、qq-bridge 和本软件有没有新版本</small></span>
+            <button class="ghost" id="set-check-updates">检查更新</button>
+          </div>
+          <div class="settings-row">
+            <span class="settings-text"><b>遇到问题？</b><small>到 GitHub 仓库提交 Issue</small></span>
+            <span class="settings-path"><button class="ghost" id="set-bug-report">Bug 反馈</button></span>
+          </div>
+          <div class="settings-hint">本软件的新版本从 GitHub Releases 读取；更新时下载新的安装包覆盖安装，配置和日志都会保留。</div>
+        </section>
+        <section class="settings-page" id="setpage-about" data-page="about">
+          <div class="about">
+            <div class="about-icon"><img src="/icon.png" alt="SnowBridge Launcher" /></div>
+            <div class="about-main">
+              <div class="about-name">SnowBridge Launcher</div>
+              <div class="about-rows">
+                <div class="about-row"><span>版本</span><b id="about-version">-</b></div>
+                <div class="about-row"><span>安装目录</span><b id="about-install">-</b></div>
+                <div class="about-row"><span>数据目录</span><b id="about-data">-</b></div>
+                <div class="about-row"><span>记忆目录</span><b id="about-memory">-</b></div>
+              </div>
+            </div>
+          </div>
+          <div class="about-foot"><a class="about-credit" href="https://github.com/Bread-Sp" target="_blank" rel="noreferrer">By.Bread_Sp</a><button type="button" class="donate" id="btn-donate" title="请我喝瓶水" aria-label="打赏"><span>赏</span></button></div>
+        </section>
       </div>
-      <div class="settings-hint">本软件的新版本从 GitHub Releases 读取；更新时下载新的安装包覆盖安装，配置和日志都会保留。</div>
-      <div class="settings-meta" id="settings-meta"></div>
+    </div>
+  </div>
+</div>
+
+<div id="donate" class="modal" hidden>
+  <div class="modal-box">
+    <div class="modal-top">
+      <span class="spacer"></span>
+      <button class="ghost" id="donate-close">关闭</button>
+    </div>
+    <div class="donate-body">
+      <div class="donate-title">捐赠 / 打赏</div>
+      <img class="donate-qr" src="/donate.png" alt="支付宝收款码" />
+      <div class="donate-sub">支付宝</div>
+    </div>
+  </div>
+</div>
+
+<div id="onboarding" class="modal" hidden>
+  <div class="modal-box">
+    <div class="modal-top">
+      <span class="card-title">首次设置</span>
+      <span class="state" id="onboarding-note">先告诉启动台两个目录在哪</span>
+      <span class="spacer"></span>
+    </div>
+    <div class="onboarding-body">
+      <div class="settings-hint">第一次运行需要先选好 SnowLuma 和 qq-bridge 的目录。可以点「跳过」，但在目录填好之前，每次启动都会再弹一次。</div>
+      <div class="settings-row">
+        <span class="settings-text"><b>SnowLuma 目录</b><small>包含 index.mjs 的目录</small></span>
+        <span class="settings-path"><code id="ob-dir-snowluma">未选择</code><button class="ghost" data-pick="snowluma">选择目录</button></span>
+      </div>
+      <div class="settings-row">
+        <span class="settings-text"><b>qq-bridge 目录</b><small>包含 src\bridge.js 的目录</small></span>
+        <span class="settings-path"><code id="ob-dir-bridge">未选择</code><button class="ghost" data-pick="bridge">选择目录</button></span>
+      </div>
+      <div class="settings-hint onboarding-errors" id="onboarding-errors" hidden></div>
+      <div class="onboarding-actions">
+        <button class="ghost" id="onboarding-skip">跳过</button>
+        <span class="spacer"></span>
+        <button class="primary" id="onboarding-done">完成</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="closeask" class="modal" hidden>
+  <div class="modal-box">
+    <div class="closeask-body">
+      <div class="closeask-title">是否关闭窗口</div>
+      <div class="closeask-actions">
+        <button class="ghost danger" id="close-quit">结束进程</button>
+        <button class="primary" id="close-tray">后台运行</button>
+      </div>
+      <label class="closeask-check"><input type="checkbox" id="close-dontask" /><span>不再提醒</span></label>
     </div>
   </div>
 </div>
@@ -479,6 +724,256 @@ function fmtUptime(ms) {
   return h > 0 ? `${h}h${m}m` : m > 0 ? `${m}m${sec}s` : `${sec}s`;
 }
 
+// 软件窗口里禁用刷新与 DevTools 快捷键（F5 / Ctrl+R / Ctrl+Shift+R / F12 / Ctrl+Shift+I/J/C）。
+// 宿主还关掉了浏览器加速键和 AreDevToolsEnabled，页面这一层只是保险。
+document.addEventListener('keydown', (event) => {
+  const key = (event.key || '').toLowerCase();
+  const devtools = event.key === 'F12' || (event.ctrlKey && event.shiftKey && (key === 'i' || key === 'j' || key === 'c'));
+  const refresh = event.key === 'F5' || (event.ctrlKey && (key === 'r' || key === 'f5'));
+  if (devtools || refresh) { event.preventDefault(); event.stopPropagation(); }
+}, true);
+
+// ── 外观：预设 / 自定义主色 / 背景图片 ─────────────────────────────────────
+// 预设只记「色相 / 饱和度 / 亮度」，具体色值和文字对比度都按主题现算：
+// 换一个主色，背景渐变、面板、边框、按钮和正文会自动一起变，不用维护浅色/深色两套 CSS。
+const PRESETS = [
+  { id: 'default', name: '默认', classic: true },
+  { id: 'sunset', name: '日落', h: 20, s: 55, l: 13, accent: 24 },
+  { id: 'forest', name: '森林', h: 152, s: 40, l: 10, accent: 148 },
+  { id: 'ocean', name: '深海', h: 197, s: 62, l: 12, accent: 188 },
+  { id: 'snow', name: '雪蓝', h: 208, s: 36, l: 88, accent: 204, accentSat: 48, glowSat: 30 },
+  { id: 'silver', name: '银灰', h: 210, s: 6, l: 92, accent: 214, glowSat: 10 },
+  { id: 'harness', name: '黑灰', h: 220, s: 8, l: 8, accent: 222, accentSat: 12, glowSat: 8 }
+];
+const appearanceState = { signature: '', imageUrl: '' };
+const clamp01 = (v) => Math.max(0, Math.min(1, v));
+const hslCss = (h, s, l, a = 1) => `hsla(${((Math.round(h) % 360) + 360) % 360}, ${Math.round(clamp01(s / 100) * 100)}%, ${Math.round(clamp01(l / 100) * 100)}%, ${a})`;
+
+function hexToHsl(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || ''));
+  if (!m) return { h: 220, s: 16, l: 7 };
+  const n = parseInt(m[1], 16);
+  const r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return { h: 0, s: 0, l: l * 100 };
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h;
+  if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) * 60;
+  else if (max === g) h = ((b - r) / d + 2) * 60;
+  else h = ((r - g) / d + 4) * 60;
+  return { h, s: s * 100, l: l * 100 };
+}
+
+function hslToHex(h, s, l) {
+  const sn = clamp01(s / 100), ln = clamp01(l / 100);
+  const c = (1 - Math.abs(2 * ln - 1)) * sn;
+  const hp = (((h % 360) + 360) % 360) / 60;
+  const x = c * (1 - Math.abs((hp % 2) - 1));
+  let r = 0, g = 0, b = 0;
+  if (hp < 1) [r, g, b] = [c, x, 0];
+  else if (hp < 2) [r, g, b] = [x, c, 0];
+  else if (hp < 3) [r, g, b] = [0, c, x];
+  else if (hp < 4) [r, g, b] = [0, x, c];
+  else if (hp < 5) [r, g, b] = [x, 0, c];
+  else [r, g, b] = [c, 0, x];
+  const m = ln - c / 2;
+  const to = (v) => Math.round(Math.max(0, Math.min(1, v + m)) * 255).toString(16).padStart(2, '0');
+  return '#' + to(r) + to(g) + to(b);
+}
+
+function presetSpec(id) {
+  const p = PRESETS.find((x) => x.id === id) || PRESETS[0];
+  return p.classic ? { ...p } : { ...p, hex: hslToHex(p.h, p.s, p.l) };
+}
+
+// 默认预设复刻「上一版」的外观：深蓝黑底 + 一点左上角冷光，不套主题公式。
+function classicTheme() {
+  const vars = {
+    bg: '#0f1115', text: '#e6e9ef', muted: '#8b93a3', 'muted-2': '#6b7280',
+    line: '#262b36', panel: '#171a21', 'panel-2': '#1d212a', 'input-bg': '#0e1117',
+    'bg-deep': '#0b0e13', hover: 'rgba(255,255,255,0.06)', 'hover-line': '#3a4152',
+    'nav-active': 'rgba(255,255,255,0.08)', 'hint-bg': '#141821', 'switch-bg': '#2a3140', 'modal-bg': '#171a21',
+    thumb: '#e6e9ef', accent: '#2f6fd0', 'accent-soft': 'rgba(47,111,208,0.14)',
+    'accent-soft-hover': 'rgba(47,111,208,0.24)', 'log-ok': '#7ee2a8', 'log-err': '#ff8b8b',
+    green: '#3ddc84', red: '#ff6b6b', amber: '#ffc857', blue: '#5aa9ff'
+  };
+  const appBg = 'radial-gradient(1200px 600px at 20% -10%, #1b2331 0%, #0f1115 55%)';
+  return { appBg, vars, light: false };
+}
+
+function colorSpec(hex) {
+  const { h, s, l } = hexToHsl(hex);
+  return { id: 'custom', name: '自定义', h, s: Math.max(18, s), l: Math.max(5, Math.min(88, l * 0.9 + 2)), accent: h, hex };
+}
+
+function themeFor(spec, opts = {}) {
+  if (spec.classic) return classicTheme();
+  const h = spec.h, s = Math.max(6, spec.s), l = clamp01(spec.l / 100) * 100;
+  const light = opts.forceDark ? false : l > 55;
+  const accent = spec.accent ?? h;
+  const deep1 = light ? hslCss(h, Math.max(8, s * 0.35), Math.min(98, l + 6)) : hslCss(h, s, l);
+  const deep2 = light ? hslCss(h + 16, Math.max(6, s * 0.4), Math.min(96, l - 1)) : hslCss(h + 16, s * 0.85, Math.max(3, l * 0.45));
+  const glow = hslCss(accent, Math.max(spec.glowSat ?? 45, s), Math.min(72, l + 30), 0.42);
+  const glow2 = hslCss(accent + 26, Math.max(spec.glowSat ?? 38, s), Math.min(62, l + 20), 0.30);
+  const appBg = `radial-gradient(900px 520px at 8% -10%, ${glow} 0%, transparent 58%), radial-gradient(760px 460px at 110% 112%, ${glow2} 0%, transparent 55%), linear-gradient(135deg, ${deep1} 0%, ${deep2} 100%)`;
+  const vars = light ? {
+    bg: hslCss(h, Math.max(10, s * 0.5), Math.min(97, l + 6)),
+    'modal-bg': hslCss(h, Math.min(40, s), Math.min(99, l + 6)),
+    text: hslCss(h, 22, 14),
+    muted: hslCss(h, 14, 34, 0.72),
+    'muted-2': hslCss(h, 12, 40, 0.45),
+    line: 'rgba(18, 22, 30, 0.12)',
+    panel: 'rgba(255, 255, 255, 0.62)',
+    'panel-2': 'rgba(255, 255, 255, 0.84)',
+    'input-bg': 'rgba(255, 255, 255, 0.58)',
+    'bg-deep': 'rgba(18, 22, 30, 0.06)',
+    hover: 'rgba(18, 22, 30, 0.06)',
+    'hover-line': 'rgba(18, 22, 30, 0.22)',
+    'nav-active': 'rgba(18, 22, 30, 0.07)',
+    'hint-bg': 'rgba(255, 255, 255, 0.55)',
+    'switch-bg': hslCss(h, 18, 72),
+    thumb: hslCss(h, 22, 99),
+    accent: hslCss(accent, Math.max(58, s), 40),
+    'accent-soft': hslCss(accent, Math.max(58, s), 40, 0.14),
+    'log-ok': hslCss(150, 60, 28),
+    'log-err': hslCss(2, 70, 40),
+    green: hslCss(150, 62, 30),
+    red: hslCss(2, 68, 40),
+    amber: hslCss(38, 80, 30),
+    blue: hslCss(214, 72, 40),
+    'accent-soft-hover': hslCss(accent, Math.max(58, s), 40, 0.22),
+    'danger-bg': 'rgba(176, 42, 42, 0.10)',
+    'danger-border': '#b4554f',
+    'danger-text': '#8f1f1f',
+    'danger-hover': 'rgba(176, 42, 42, 0.18)'
+  } : {
+    bg: hslCss(h, s, l),
+    'modal-bg': hslCss(h, s, Math.max(10, l + 5)),
+    text: hslCss(h, 28, 92),
+    muted: hslCss(h, 12, 68, 0.78),
+    'muted-2': hslCss(h, 10, 52, 0.6),
+    line: 'rgba(255, 255, 255, 0.10)',
+    panel: 'rgba(255, 255, 255, 0.055)',
+    'panel-2': 'rgba(255, 255, 255, 0.085)',
+    'input-bg': 'rgba(0, 0, 0, 0.26)',
+    'bg-deep': 'rgba(0, 0, 0, 0.30)',
+    hover: 'rgba(255, 255, 255, 0.07)',
+    'hover-line': 'rgba(255, 255, 255, 0.24)',
+    'nav-active': 'rgba(255, 255, 255, 0.09)',
+    'hint-bg': 'rgba(0, 0, 0, 0.22)',
+    'switch-bg': 'rgba(255, 255, 255, 0.16)',
+    thumb: hslCss(h, 20, 92),
+    accent: hslCss(accent, Math.max(spec.accentSat ?? 62, s), 64),
+    'accent-soft': hslCss(accent, Math.max(spec.accentSat ?? 62, s), 64, 0.18),
+    'log-ok': '#7ee2a8',
+    'log-err': '#ff8b8b',
+    'accent-soft-hover': hslCss(accent, Math.max(spec.accentSat ?? 62, s), 64, 0.30),
+    'danger-bg': 'rgba(255, 93, 93, 0.12)',
+    'danger-border': 'rgba(255, 93, 93, 0.42)',
+    'danger-text': '#ffc3c3',
+    'danger-hover': 'rgba(255, 93, 93, 0.20)'
+  };
+  return { appBg, vars, light };
+}
+
+function applyTheme(spec, opts) {
+  const theme = themeFor(spec, opts);
+  const root = document.documentElement.style;
+  root.setProperty('--app-bg', theme.appBg);
+  for (const [key, value] of Object.entries(theme.vars)) root.setProperty('--' + key, value);
+  document.documentElement.dataset.light = theme.light ? '1' : '0';
+  return theme;
+}
+
+function averageColor(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1; canvas.height = 1;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, 1, 1);
+        const d = ctx.getImageData(0, 0, 1, 1).data;
+        resolve(hexToHsl('#' + [d[0], d[1], d[2]].map((v) => v.toString(16).padStart(2, '0')).join('')));
+      } catch (error) { reject(error); }
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
+async function applyAppearance(app) {
+  app = app && typeof app === 'object' ? app : {};
+  const signature = [app.mode, app.preset, app.color, app.image].join('|');
+  if (signature === appearanceState.signature) return;
+  appearanceState.signature = signature;
+  const body = document.body;
+  if (app.mode === 'image' && app.image) {
+    const url = '/api/wallpaper?f=' + encodeURIComponent(app.image) + '&t=' + Date.now();
+    const accent = await averageColor(url).catch(() => null);
+    const spec = accent ? { h: accent.h, s: Math.max(16, accent.s * 0.5), l: 8, accent: accent.h } : presetSpec('graphite');
+    applyTheme(spec, { forceDark: true });
+    body.classList.add('has-wallpaper');
+    body.style.backgroundImage = `linear-gradient(160deg, rgba(4, 6, 10, 0.52), rgba(4, 6, 10, 0.78)), url("${url}")`;
+    body.style.backgroundSize = 'cover, cover';
+    body.style.backgroundPosition = 'center, center';
+    body.style.backgroundAttachment = 'fixed, fixed';
+    appearanceState.imageUrl = url;
+    return;
+  }
+  body.classList.remove('has-wallpaper');
+  body.style.backgroundImage = '';
+  body.style.backgroundSize = '';
+  body.style.backgroundPosition = '';
+  body.style.backgroundAttachment = '';
+  appearanceState.imageUrl = '';
+  const spec = app.mode === 'color' && app.color ? colorSpec(app.color) : presetSpec(app.preset);
+  applyTheme(spec);
+}
+
+function renderAppearance(app) {
+  app = app && typeof app === 'object' ? app : {};
+  if (!$('#preset-grid').childElementCount) buildPresetGrid();
+  for (const button of $$('.preset')) {
+    button.classList.toggle('active', app.mode === 'preset' && button.dataset.preset === app.preset);
+  }
+  const spec = app.mode === 'color' && app.color ? colorSpec(app.color) : presetSpec(app.preset);
+  const colorInput = $('#set-color');
+  // 用预设时，自定义颜色显示黑色（避免让人误以为预设是从某个颜色算的）。
+  if (colorInput) colorInput.value = app.mode === 'color' && app.color ? app.color : '#000000';
+  void applyAppearance(app);
+}
+
+function buildPresetGrid() {
+  const grid = $('#preset-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  for (const preset of PRESETS) {
+    const spec = presetSpec(preset.id);
+    const theme = themeFor(spec);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'preset';
+    button.dataset.preset = preset.id;
+    const swatch = document.createElement('span');
+    swatch.className = 'swatch';
+    swatch.style.background = theme.appBg;
+    const label = document.createElement('span');
+    label.className = 'label';
+    label.textContent = preset.name;
+    button.append(swatch, label);
+    grid.appendChild(button);
+  }
+}
+
+function saveAppearance(patch, message) {
+  saveSetting({ appearance: patch }, message);
+}
+
 function renderState(data) {
   if (!data || !data.services) return;
   state.data = data;
@@ -523,8 +1018,7 @@ function renderState(data) {
   $('#dot-br').className = `dot ${brUp ? 'ok' : 'bad'}`;
   $('#br-text').textContent = brUp ? `:${data.ports.console} 通` : '不通';
 
-  $('#auto-start').checked = Boolean(data.config?.autoStartAll);
-  $('#auto-restart').checked = Boolean(data.config?.autoRestart);
+  if (data.config?.appearance) applyAppearance(data.config.appearance);
 
   for (const id of ['bridge', 'snowluma']) {
     const badge = $(`[data-badge="${id}"]`);
@@ -688,7 +1182,33 @@ async function openMemory() {
     diaryBox.appendChild(details);
   });
   $('#memory-note').textContent = `只读 · ${diaries.length} 篇日记${memos.length ? ` · ${memos.length} 条便签` : ''}`;
-  $('#memory').hidden = false;
+  $('#memory-dir').textContent = data.memoryDir || '（跟随桥接 fs.root）';
+  openModal('#memory');
+}
+
+// 记忆目录统一在「设置 → 目录」里选；记忆面板只显示只读路径。
+
+// 首次运行向导：没点过「完成」、或两个目录现在不合法时弹出来；「跳过」不写 setupDone，
+// 所以下次启动还会弹，直到用户在向导里把目录填好并点「完成」。
+async function maybeShowOnboarding() {
+  const { ok, data } = await api('/api/settings');
+  if (!ok) return;
+  renderSettings(data);
+  if (data.needsSetup) openModal('#onboarding');
+}
+
+async function finishOnboarding() {
+  const { ok, data } = await api('/api/settings', { setupDone: true });
+  if (!ok) {
+    toast((data.errors || []).join('；') || '保存失败', 'err');
+    const current = await api('/api/settings');
+    if (current.ok) renderSettings(current.data);
+    return;
+  }
+  renderSettings(data);
+  closeModal('#onboarding');
+  toast('目录已保存，以后启动不会再弹这个窗口', 'ok');
+  void refresh();
 }
 
 // 版本检查：只判断「是不是最新」，不自动升级。SnowLuma 优先问它自己的更新接口（没运行就退回发布页），
@@ -760,7 +1280,6 @@ function renderUpdates(data) {
     body.appendChild(note);
   }
   $('#update-note').textContent = data.checkedAt ? `检查于 ${new Date(data.checkedAt).toLocaleTimeString()}` : '';
-  $('#updates').hidden = false;
 }
 
 async function openUpdates() {
@@ -768,32 +1287,29 @@ async function openUpdates() {
   const { data } = await api('/api/check-updates');
   if (!data.ok) { toast(data.error || '版本检查失败', 'err'); return; }
   renderUpdates(data);
+  openModal('#updates');
 }
 
 // 设置：开机自启 / 打开时自动启动服务 / 意外退出自动重启。
 // 三个开关都直接落盘（launcher.json 或 Startup 快捷方式），没有「保存」按钮。
-async function openSettings() {
+async function openSettings(page) {
   const { ok, data } = await api('/api/settings');
   if (!ok) { toast(data.error || '读取设置失败', 'err'); return; }
-  $('#set-startwithwindows').checked = Boolean(data.startWithWindows);
-  $('#set-autostartall').checked = Boolean(data.autoStartAll);
-  $('#set-autorestart').checked = Boolean(data.autoRestart);
-  $('#settings-note').textContent = `v${data.version}`;
-  $('#settings-meta').textContent = `安装目录：${data.installDir}\n数据目录：${data.dataDir}`;
-  $('#settings').hidden = false;
+  renderSettings(data);
+  showSettingsPage(page || settingsState.page || 'general');
+  openModal('#settings');
 }
 
 async function saveSetting(patch, message) {
   const { ok, data } = await api('/api/settings', patch);
   if (!ok) {
     toast((data.errors || [data.error]).filter(Boolean).join('；'), 'err');
-    await openSettings(); // 失败就把开关拨回真实状态
+    // 失败就把开关/路径拨回服务端的真实状态（不重新播弹窗动画）。
+    const current = await api('/api/settings');
+    if (current.ok) renderSettings(current.data);
     return;
   }
-  // 和 footer 上的两个开关是同一份配置，顺手同步一下。
-  if (typeof data.autoStartAll === 'boolean') $('#auto-start').checked = data.autoStartAll;
-  if (typeof data.autoRestart === 'boolean') $('#auto-restart').checked = data.autoRestart;
-  if (typeof data.startWithWindows === 'boolean') $('#set-startwithwindows').checked = data.startWithWindows;
+  renderSettings(data);
   if (message) toast(message, 'ok');
   void refresh();
 }
@@ -819,6 +1335,17 @@ const shell = (() => {
   if (!wv) return null;
   document.body.classList.add('shell');
   const post = (action) => { try { wv.postMessage(action); } catch { /* 忽略 */ } };
+  wv.addEventListener('message', (event) => {
+    const action = event.data?.action;
+    if (action === 'close-request') onHostCloseRequest();
+  });
+  const credit = document.querySelector('.about-credit');
+  if (credit) {
+    credit.addEventListener('click', (event) => {
+      event.preventDefault();
+      post('open-url:https://github.com/Bread-Sp');
+    });
+  }
   const titlebar = $('#titlebar');
   // 品牌挪进标题栏左侧；Edge 回退模式没有标题栏，就还留在页面头部。
   titlebar.insertBefore(document.querySelector('header h1'), $('#shell-controls'));
@@ -836,11 +1363,133 @@ const shell = (() => {
       post('maximize');
     });
   }
+  // 弹窗打开时遮罩盖住标题栏；用最上方一条不可见的拖拽带替代（和主页面拖拽一致）。
+  const strip = $('#dragstrip');
+  strip.addEventListener('mousedown', (event) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    post('drag');
+  });
+  strip.addEventListener('dblclick', () => post('maximize'));
   $('#win-min').addEventListener('click', () => post('minimize'));
   $('#win-max').addEventListener('click', () => post('maximize'));
-  $('#win-close').addEventListener('click', () => post('close'));
+  $('#win-close').addEventListener('click', () => onHostCloseRequest());
   return { post };
 })();
+
+// ── 弹窗开合动画 ───────────────────────────────────────────────────────────
+// 统一的 switch：hidden=false → 下一帧加 .open 播放「浮起 + 缩放 + 毛玻璃」；
+// 关闭时先加 .closing 播退出，再落回 hidden，避免直接 display:none 的硬切。
+function openModal(id) {
+  const modal = typeof id === 'string' ? $(id) : id;
+  if (!modal) return;
+  clearTimeout(modal._closeTimer);
+  modal.hidden = false;
+  modal.classList.remove('closing');
+  void modal.offsetWidth;
+  modal.classList.add('open');
+  document.body.classList.add('modal-open');
+}
+
+function closeModal(id) {
+  const modal = typeof id === 'string' ? $(id) : id;
+  if (!modal || modal.hidden) return;
+  modal.classList.remove('open');
+  if (!document.querySelector('.modal.open')) document.body.classList.remove('modal-open');
+  modal.classList.add('closing');
+  clearTimeout(modal._closeTimer);
+  modal._closeTimer = setTimeout(() => {
+    modal.hidden = true;
+    modal.classList.remove('closing');
+  }, 210);
+}
+
+// ── 关闭窗口询问：结束进程 / 后台运行 / 不再提醒 ───────────────────────────
+// 宿主不再拦截关闭后直接隐藏，而是把 close-request 发给页面；询问结果记在 localStorage。
+const closeState = { ask: true, action: 'tray' };
+try {
+  const saved = JSON.parse(localStorage.getItem('snowbridge.close') || 'null');
+  if (saved && typeof saved === 'object') {
+    closeState.ask = saved.ask !== false;
+    closeState.action = saved.action === 'quit' ? 'quit' : 'tray';
+  }
+} catch { /* 忽略 */ }
+
+function saveCloseState() {
+  try { localStorage.setItem('snowbridge.close', JSON.stringify(closeState)); } catch { /* 忽略 */ }
+}
+
+async function runCloseAction(action) {
+  if (action === 'quit') {
+    // 先让服务端把 quit.request 交给托盘，再播退场动画：
+    // 反过来的话宿主一退页面就被销毁，这个请求会永远发不出去。
+    try { await api('/api/quit-all', {}); } catch { /* 忽略 */ }
+    if (shell) shell.post('exit'); else window.close();
+    return;
+  }
+  if (shell) shell.post('close');
+}
+
+function onHostCloseRequest() {
+  if (!closeState.ask) { runCloseAction(closeState.action); return; }
+  $('#close-dontask').checked = false;
+  openModal('#closeask');
+}
+
+// ── 设置：分页 + 目录 ──────────────────────────────────────────────────────
+const settingsState = { data: null, page: 'general' };
+
+function renderSettings(data) {
+  settingsState.data = data;
+  $('#set-startwithwindows').checked = Boolean(data.startWithWindows);
+  $('#set-autostartall').checked = Boolean(data.autoStartAll);
+  $('#set-autorestart').checked = Boolean(data.autoRestart);
+  $('#set-closebg').checked = !closeState.ask && closeState.action === 'tray';
+  $('#set-startminimized').checked = Boolean(data.startMinimized);
+  $('#set-autoadopt').checked = Boolean(data.autoAdopt);
+  $('#set-dir-snowluma').textContent = data.snowlumaDir || '未绑定';
+  $('#set-dir-bridge').textContent = data.bridgeDir || '未绑定';
+  $('#set-dir-memory').textContent = data.memoryDir || '跟随桥接（默认）';
+  const resetMemory = $('#set-memory-reset');
+  if (resetMemory) resetMemory.disabled = !data.memoryDir;
+  $('#about-version').textContent = `v${data.version}`;
+  $('#about-install').textContent = data.installDir || '—';
+  $('#about-data').textContent = data.dataDir || '—';
+  $('#about-memory').textContent = data.memoryDir || '跟随桥接（fs.root）';
+  renderAppearance(data.appearance || {});
+  renderOnboarding(data);
+}
+
+function renderOnboarding(data) {
+  $('#ob-dir-snowluma').textContent = data.snowlumaDir || '未选择';
+  $('#ob-dir-bridge').textContent = data.bridgeDir || '未选择';
+  const errors = data.dirErrors || [];
+  const box = $('#onboarding-errors');
+  box.hidden = errors.length === 0;
+  box.textContent = errors.join('\n');
+}
+
+// 分页切换：旧页向左淡出、新页从右浮入（和弹窗本身同一套缓动）。
+function showSettingsPage(name) {
+  if (!name) name = 'general';
+  const next = $('.settings-page[data-page="' + name + '"]');
+  if (!next) return;
+  for (const button of $$('.settings-nav button')) {
+    button.classList.toggle('active', button.dataset.setpage === name);
+  }
+  for (const page of $$('.settings-page')) {
+    if (page === next) {
+      if (page.classList.contains('active')) continue;
+      page.classList.remove('leaving');
+      page.classList.add('active');
+    } else if (page.classList.contains('active')) {
+      page.classList.remove('active');
+      page.classList.add('leaving');
+      setTimeout(() => page.classList.remove('leaving'), 200);
+    }
+  }
+  settingsState.page = name;
+}
 
 // 退出动画：先把界面淡出（无边框模式同时通知宿主淡出整窗），再去停服务。
 let quitting = false;
@@ -939,23 +1588,50 @@ document.addEventListener('click', async (event) => {
   const pick = event.target.closest('[data-pick]');
   if (pick) {
     const id = pick.dataset.pick;
-    const current = state.data?.services?.[id]?.dir || '';
+    const current = id === 'snowluma'
+      ? (settingsState.data?.snowlumaDir || state.data?.services?.snowluma?.dir || '')
+      : id === 'bridge'
+        ? (settingsState.data?.bridgeDir || state.data?.services?.bridge?.dir || '')
+        : (settingsState.data?.memoryDir || '');
+    const label = pick.textContent;
     pick.disabled = true;
     pick.textContent = '选择中…';
     try {
       const { data } = await api('/api/pick-dir', {
-        title: id === 'snowluma' ? '选择 SnowLuma 目录（包含 index.mjs）' : '选择 qq-bridge 目录（包含 src\\bridge.js）',
-        initial: current
+        title: id === 'snowluma' ? '选择 SnowLuma 目录（包含 index.mjs）'
+          : id === 'bridge' ? '选择 qq-bridge 目录（包含 src\\bridge.js）'
+          : '选择记忆目录（包含 diary 文件夹，或直接放 .md 日记）',
+        initial: current,
+        kind: id === 'memory' ? '' : id
       });
-      if (data.ok && data.path) {
-        const patch = id === 'snowluma' ? { snowlumaDir: data.path } : { bridgeDir: data.path };
-        const saved = await api('/api/config', patch);
-        if (saved.data.ok) toast('目录已绑定', 'ok');
-        else toast((saved.data.errors || []).join('；') || '绑定失败', 'err');
+      if (!data.ok) {
+        if (data.error && !/取消/.test(String(data.error))) toast(data.error, 'err');
+        return;
+      }
+      if (data.path) {
+        if (data.nested) {
+          toast(id === 'snowluma' ? '已在所选文件夹里找到 SnowLuma 目录' : '已在所选文件夹里找到 qq-bridge 目录', 'ok');
+        }
+        const patch = id === 'snowluma' ? { snowlumaDir: data.path }
+          : id === 'bridge' ? { bridgeDir: data.path }
+          : { memoryDir: data.path };
+        const saved = await api('/api/settings', patch);
+        if (saved.data.ok) {
+          renderSettings(saved.data);
+          toast(id === 'memory' ? '记忆目录已更新' : '目录已更新', 'ok');
+          void refresh();
+          if (id === 'memory' && !$('#memory').hidden) await openMemory();
+          if (!$('#onboarding').hidden && !saved.data.needsSetup) {
+            // 两个目录都齐了且已点过完成才收起；否则等用户点「完成」。
+          }
+        } else {
+          toast((saved.data.errors || []).join('；') || '绑定失败', 'err');
+          renderOnboarding(saved.data);
+        }
       }
     } finally {
       pick.disabled = false;
-      pick.textContent = '选择目录';
+      pick.textContent = label;
     }
     return;
   }
@@ -982,6 +1658,15 @@ $('#btn-start-all').addEventListener('click', () => withBusy(async () => {
   else toast('全部启动完成', 'ok');
 }));
 
+$('#btn-restart-all').addEventListener('click', () => withBusy(async () => {
+  toast('正在一键重启：先停两个服务，再按顺序拉起…');
+  const { data } = await api('/api/restart-all', {});
+  if (!data.ok) { toast(data.error || '一键重启失败', 'err'); return; }
+  const failed = Object.entries(data.results || {}).filter(([, r]) => !r.ok).map(([k, r]) => `${k}: ${r.error}`);
+  if (failed.length) toast(`部分失败：${failed.join('；')}`, 'err');
+  else toast('全部已重启', 'ok');
+}));
+
 $('#btn-stop-all').addEventListener('click', () => withBusy(async () => {
   const { data } = await api('/api/stop-all', {});
   const failed = Object.entries(data.results || {}).filter(([, r]) => !r.ok).map(([k, r]) => `${k}: ${r.error}`);
@@ -989,24 +1674,28 @@ $('#btn-stop-all').addEventListener('click', () => withBusy(async () => {
   else toast('全部已停止', 'ok');
 }));
 
-// 接管：先结束外面启动的实例（含守护脚本），再由启动台重新拉起，保证以后一个入口管理。
-$('#btn-adopt').addEventListener('click', () => withBusy(async () => {
-  if (!confirm('接管正在运行的 SnowLuma / qq-bridge？\n\n会先结束外面启动的实例和守护脚本，再由启动台重新拉起。')) return;
-  toast('正在接管：结束外部实例 → 等端口释放 → 重新启动…');
-  const { data } = await api('/api/adopt', {});
-  if (!data.ok) { toast(data.error || '接管失败', 'err'); return; }
-  const notes = (data.notes || []).join('；');
-  const suffix = data.onebotReady ? '' : '（OneBot 端口还没起，桥接会自己重连）';
-  toast(`接管完成${suffix}${notes ? `：${notes}` : ''}`, data.onebotReady ? 'ok' : '');
-}));
-
-$('#auto-start').addEventListener('change', async (event) => {
-  const { data } = await api('/api/config', { autoStartAll: event.target.checked });
-  if (!data.ok) toast((data.errors || []).join('；'), 'err');
+// 外观：点预设/挑颜色/选图片都立即落盘，弹窗不关、当场就变。
+$('#preset-grid').addEventListener('click', (event) => {
+  const button = event.target.closest('.preset');
+  if (!button) return;
+  const spec = presetSpec(button.dataset.preset);
+  saveAppearance({ mode: 'preset', preset: spec.id }, '外观已更新');
 });
-$('#auto-restart').addEventListener('change', async (event) => {
-  const { data } = await api('/api/config', { autoRestart: event.target.checked });
-  if (!data.ok) toast((data.errors || []).join('；'), 'err');
+$('#set-color').addEventListener('input', (event) => {
+  const app = settingsState.data?.appearance || {};
+  void applyAppearance({ mode: 'color', color: event.target.value, preset: app.preset, image: app.image });
+});
+$('#set-color').addEventListener('change', (event) => {
+  saveAppearance({ mode: 'color', color: event.target.value }, '外观已更新');
+});
+$('#set-image').addEventListener('click', () => withBusy(async () => {
+  const { ok, data } = await api('/api/pick-image', { title: '选择背景图片' });
+  if (!ok) { toast(data.error || '选择图片失败', 'err'); return; }
+  if (data.cancelled) return;
+  saveAppearance({ mode: 'image', image: data.image }, '背景图已更新');
+}));
+$('#clear-image').addEventListener('click', () => {
+  saveAppearance({ mode: 'preset', preset: 'default' }, '已恢复默认背景');
 });
 
 $('#btn-clear').addEventListener('click', async () => {
@@ -1025,19 +1714,59 @@ $('#btn-copy').addEventListener('click', async () => {
 });
 
 $('#btn-memory').addEventListener('click', () => withBusy(openMemory));
+$('#btn-donate').addEventListener('click', () => openModal('#donate'));
+$('#donate-close').addEventListener('click', () => closeModal('#donate'));
+$('#donate').addEventListener('click', (event) => { if (event.target === $('#donate')) closeModal('#donate'); });
+
+$('#close-quit').addEventListener('click', () => {
+  closeState.action = 'quit';
+  closeState.ask = !$('#close-dontask').checked;
+  saveCloseState();
+  closeModal('#closeask');
+  runCloseAction('quit');
+});
+$('#close-tray').addEventListener('click', () => {
+  closeState.action = 'tray';
+  closeState.ask = !$('#close-dontask').checked;
+  saveCloseState();
+  closeModal('#closeask');
+  runCloseAction('tray');
+});
+$('#closeask').addEventListener('click', (event) => { if (event.target === $('#closeask')) closeModal('#closeask'); });
+$('#set-closebg').addEventListener('change', (event) => {
+  closeState.ask = !event.target.checked;
+  closeState.action = 'tray';
+  saveCloseState();
+  toast(event.target.checked ? '关闭窗口时直接后台运行' : '关闭窗口时会询问', 'ok');
+});
 
 // 「检查更新」：查 SnowLuma、qq-bridge 和本软件是不是最新版；只查不升级。
-$('#update-close').addEventListener('click', () => { $('#updates').hidden = true; });
+$('#update-close').addEventListener('click', () => closeModal('#updates'));
 $('#updates').addEventListener('click', (event) => {
-  if (event.target === $('#updates')) $('#updates').hidden = true;
+  if (event.target === $('#updates')) closeModal('#updates');
 });
 $('#update-recheck').addEventListener('click', () => withBusy(openUpdates));
 
 // 「设置」：右上角齿轮（只在无边框外壳里出现在标题栏上）。
-$('#win-settings').addEventListener('click', () => withBusy(openSettings));
-$('#settings-close').addEventListener('click', () => { $('#settings').hidden = true; });
+// 设置必须随时能打开：一键启动/停止可能让 state.busy 长时间为 true，不能把齿轮也锁住。
+$('#win-settings').addEventListener('click', () => { if ($('#settings').hidden) void openSettings(); });
+
+$('#settings-close').addEventListener('click', () => closeModal('#settings'));
+for (const button of $$('.settings-nav button')) {
+  button.addEventListener('click', () => {
+    if (button.classList.contains('active')) return;
+    showSettingsPage(button.dataset.setpage);
+  });
+}
+
+// 首次运行向导：跳过不落盘，完成才写 setupDone。
+$('#onboarding-skip').addEventListener('click', () => closeModal('#onboarding'));
+$('#onboarding-done').addEventListener('click', () => finishOnboarding());
 $('#settings').addEventListener('click', (event) => {
-  if (event.target === $('#settings')) $('#settings').hidden = true;
+  if (event.target === $('#settings')) closeModal('#settings');
+});
+$('#set-startminimized').addEventListener('change', (event) => {
+  void saveSetting({ startMinimized: event.target.checked }, event.target.checked ? '启动时只进托盘，不弹窗口' : '启动时正常弹出窗口');
 });
 $('#set-startwithwindows').addEventListener('change', (event) => {
   void saveSetting({ startWithWindows: event.target.checked }, event.target.checked ? '已加入开机自启' : '已取消开机自启');
@@ -1048,10 +1777,20 @@ $('#set-autostartall').addEventListener('change', (event) => {
 $('#set-autorestart').addEventListener('change', (event) => {
   void saveSetting({ autoRestart: event.target.checked }, event.target.checked ? '服务意外退出会自动重启' : '服务意外退出不再自动重启');
 });
+
+$('#set-autoadopt').addEventListener('change', (event) => {
+  void saveSetting({ autoAdopt: event.target.checked }, event.target.checked ? '已开启自动接管外部服务' : '已关闭自动接管外部服务');
+});
 $('#set-check-updates').addEventListener('click', () => {
   // 更新弹窗在设置弹窗下面一层，先收起设置再打开更新，避免被遮住。
-  $('#settings').hidden = true;
+  closeModal('#settings');
+  openModal('#updates'); // 立刻显示「检查中…」，结果晚点再填
   withBusy(openUpdates);
+});
+
+$('#set-bug-report').addEventListener('click', () => {
+  const url = 'https://github.com/Bread-Sp/SnowBridge-Launcher/issues/new';
+  if (shell) shell.post('open-url:' + url); else window.open(url, '_blank', 'noreferrer');
 });
 
 // 「hook」：配置启动后自动加载哪个 QQ 账号的 hook。
@@ -1071,16 +1810,26 @@ $('#btn-hook').addEventListener('click', () => withBusy(async () => {
   toast('hook 配置已保存，正在自动加载（SnowLuma 日志里会出现 ⚙ 行）', 'ok');
 }));
 
-$('#memory-close').addEventListener('click', () => { $('#memory').hidden = true; });
+$('#memory-close').addEventListener('click', () => closeModal('#memory'));
+$('#set-memory-reset').addEventListener('click', () => withBusy(async () => {
+  const { data } = await api('/api/settings', { memoryDir: '' });
+  if (!data.ok) { toast((data.errors || []).join('；') || '恢复失败', 'err'); return; }
+  renderSettings(data);
+  toast('记忆目录已恢复为跟随桥接', 'ok');
+  if (!$('#memory').hidden) await openMemory();
+}));
 $('#memory').addEventListener('click', (event) => {
   // 点遮罩关闭；点弹窗内容不关。
-  if (event.target === $('#memory')) $('#memory').hidden = true;
+  if (event.target === $('#memory')) closeModal('#memory');
 });
 document.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return;
-  if (!$('#memory').hidden) $('#memory').hidden = true;
-  if (!$('#updates').hidden) $('#updates').hidden = true;
-  if (!$('#settings').hidden) $('#settings').hidden = true;
+  if (!$('#memory').hidden) closeModal('#memory');
+  if (!$('#updates').hidden) closeModal('#updates');
+  if (!$('#settings').hidden) closeModal('#settings');
+  if (!$('#donate').hidden) closeModal('#donate');
+  if (!$('#onboarding').hidden) closeModal('#onboarding');
+  if (!$('#closeask').hidden) closeModal('#closeask');
 });
 
 $('#btn-quit').addEventListener('click', async () => {
@@ -1098,6 +1847,8 @@ $('#btn-quit').addEventListener('click', async () => {
   await loadLogs();
   connect();
   playSummon();
+  buildPresetGrid();
+  void maybeShowOnboarding();
   // SSE 之外的低频兜底刷新：长时间挂着时状态（含 DSH 端口漂移）也不会失真。
   setInterval(() => { void refresh(); }, 5000);
 })();

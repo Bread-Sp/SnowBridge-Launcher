@@ -16,7 +16,7 @@ Add-Type -AssemblyName System.Drawing
 
 $script:Source = $PSScriptRoot
 $script:RegKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\SnowBridgeLauncher'
-$script:AppFiles = @('server.mjs', 'ui.html', 'launch.mjs', 'tray.ps1', 'winhelp.cs', 'winhelp.dll', 'SnowBridgeHost.exe', 'SnowBridgeHost.cs', 'Microsoft.Web.WebView2.Core.dll', 'Microsoft.Web.WebView2.WinForms.dll', 'WebView2Loader.dll', 'hidehost.exe', 'hidehost.cs', 'icon.ico', 'icon.png', 'launcher.exe')
+$script:AppFiles = @('server.mjs', 'ui.html', 'launch.mjs', 'tray.ps1', 'winhelp.cs', 'winhelp.dll', 'SnowBridgeHost.exe', 'SnowBridgeHost.cs', 'Microsoft.Web.WebView2.Core.dll', 'Microsoft.Web.WebView2.WinForms.dll', 'WebView2Loader.dll', 'hidehost.exe', 'hidehost.cs', 'icon.ico', 'icon.png', 'donate.png', 'launcher.exe')
 
 function Get-DefaultDir { Join-Path $env:LOCALAPPDATA 'Programs\SnowBridge Launcher' }
 
