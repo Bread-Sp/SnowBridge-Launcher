@@ -257,6 +257,8 @@
     margin-top: 10px; padding: 10px 12px; font-size: 12.5px; line-height: 1.6; color: var(--muted);
     background: #0e1117; border: 1px solid var(--line); border-radius: 10px;
   }
+  .settings-sep { margin: 14px 0 2px; height: 1px; background: #ffffff0d; }
+  .settings-row .ghost { margin-left: auto; }
   .settings-meta { margin-top: 10px; font-size: 11.5px; line-height: 1.7; color: #7c8698; white-space: pre-wrap; word-break: break-all; }
   .empty { color: var(--muted); }
 </style>
@@ -342,7 +344,6 @@
       <div class="tab" data-tab="snowluma">SnowLuma 日志 <span class="badge" data-badge="snowluma"></span></div>
     </div>
     <span class="spacer"></span>
-    <button class="ghost" id="btn-update" title="查询 SnowLuma 和 qq-bridge 是否是最新版。SnowLuma 优先走它自己的更新接口；桥接读 GitHub 发布页；本机直连 GitHub 不通，会自动走镜像。">检查更新</button>
     <button class="ghost" id="btn-memory">记忆</button>
     <button class="ghost" id="btn-hook" title="配置启动后自动加载哪个 QQ 账号的 hook（免得每次重启 QQ 都要手动去 5099 点加载）">hook</button>
     <button class="ghost" id="btn-clear">清屏</button>
@@ -421,6 +422,12 @@
         <span class="switch"><input type="checkbox" id="set-autorestart" /></span>
       </label>
       <div class="settings-hint">关闭窗口只是收进托盘，服务继续在后台运行；要连服务一起停，用右下角「退出并停止」。</div>
+      <div class="settings-sep"></div>
+      <div class="settings-row">
+        <span class="settings-text"><b>版本与更新</b><small>检查 SnowLuma、qq-bridge 和本软件有没有新版本</small></span>
+        <button class="ghost" id="set-check-updates">检查更新</button>
+      </div>
+      <div class="settings-hint">本软件的新版本从 GitHub Releases 读取；更新时下载新的安装包覆盖安装，配置和日志都会保留。</div>
       <div class="settings-meta" id="settings-meta"></div>
     </div>
   </div>
@@ -477,6 +484,7 @@ function renderState(data) {
   state.data = data;
   const verEl = $('#ver');
   if (verEl && data.version) verEl.textContent = 'v' + data.version;
+  if (data.version) document.title = 'SnowBridge Launcher v' + data.version;
 
   for (const id of ['snowluma', 'bridge']) {
     const svc = data.services[id];
@@ -695,7 +703,8 @@ function renderUpdates(data) {
   body.textContent = '';
   const rows = [
     { label: 'SnowLuma', item: data.snowluma },
-    { label: 'qq-bridge', item: data.bridge }
+    { label: 'qq-bridge', item: data.bridge },
+    { label: 'SnowBridge Launcher', item: data.launcher }
   ];
   for (const { label, item } of rows) {
     const row = document.createElement('div');
@@ -1017,8 +1026,7 @@ $('#btn-copy').addEventListener('click', async () => {
 
 $('#btn-memory').addEventListener('click', () => withBusy(openMemory));
 
-// 「检查更新」：查两个组件是不是最新版；只查不升级。
-$('#btn-update').addEventListener('click', () => withBusy(openUpdates));
+// 「检查更新」：查 SnowLuma、qq-bridge 和本软件是不是最新版；只查不升级。
 $('#update-close').addEventListener('click', () => { $('#updates').hidden = true; });
 $('#updates').addEventListener('click', (event) => {
   if (event.target === $('#updates')) $('#updates').hidden = true;
@@ -1039,6 +1047,11 @@ $('#set-autostartall').addEventListener('change', (event) => {
 });
 $('#set-autorestart').addEventListener('change', (event) => {
   void saveSetting({ autoRestart: event.target.checked }, event.target.checked ? '服务意外退出会自动重启' : '服务意外退出不再自动重启');
+});
+$('#set-check-updates').addEventListener('click', () => {
+  // 更新弹窗在设置弹窗下面一层，先收起设置再打开更新，避免被遮住。
+  $('#settings').hidden = true;
+  withBusy(openUpdates);
 });
 
 // 「hook」：配置启动后自动加载哪个 QQ 账号的 hook。

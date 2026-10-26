@@ -33,7 +33,7 @@ const MAX_LINES = 3000;
 const POLL_MS = 3000;
 
 /** 程序版本：显示在窗口标题、界面角标、托盘提示和安装包里，也是以后升级判断的依据。 */
-const VERSION = '0.0.1';
+const VERSION = '0.0.2';
 
 // ── 配置 ────────────────────────────────────────────────────────────────────
 const DEFAULT_CONFIG = {
@@ -494,6 +494,7 @@ const GH_MIRRORS = [
 ];
 const SNOWLUMA_REPO = 'SnowLuma/SnowLuma';
 const BRIDGE_REPO = 'Derpyu520/qq-bridge';
+const LAUNCHER_REPO = 'Bread-Sp/SnowBridge-Launcher';
 
 function versionParts(value) {
   const raw = String(value ?? '').trim().replace(/^v/i, '');
@@ -619,17 +620,31 @@ async function checkBridgeVersion(errors) {
   };
 }
 
+/** 本软件自己：版本写死在这里，最新版读本仓库的 releases。 */
+async function checkLauncherVersion(errors) {
+  const current = VERSION;
+  const latest = await latestReleaseTag(LAUNCHER_REPO, errors);
+  return {
+    current,
+    latest: latest || null,
+    hasUpdate: latest ? compareVersions(latest, current) > 0 : null,
+    url: latest ? `https://github.com/${LAUNCHER_REPO}/releases/tag/v${latest}` : `https://github.com/${LAUNCHER_REPO}/releases`,
+    source: 'page'
+  };
+}
+
 let updateCheckTask = null;
-/** 两个服务并行查；同一时间只跑一次，界面连点也不会叠加请求。 */
+/** 三个服务并行查；同一时间只跑一次，界面连点也不会叠加请求。 */
 function checkUpdates() {
   if (!updateCheckTask) {
     updateCheckTask = (async () => {
       const errors = [];
-      const [snowluma, bridge] = await Promise.all([
+      const [snowluma, bridge, launcher] = await Promise.all([
         checkSnowlumaVersion(errors).catch((error) => ({ current: localSnowlumaVersion(), latest: null, hasUpdate: null, error: String(error?.message ?? error) })),
-        checkBridgeVersion(errors).catch((error) => ({ current: localBridgeVersion(), latest: null, hasUpdate: null, error: String(error?.message ?? error) }))
+        checkBridgeVersion(errors).catch((error) => ({ current: localBridgeVersion(), latest: null, hasUpdate: null, error: String(error?.message ?? error) })),
+        checkLauncherVersion(errors).catch((error) => ({ current: VERSION, latest: null, hasUpdate: null, error: String(error?.message ?? error) }))
       ]);
-      return { ok: true, checkedAt: Date.now(), snowluma, bridge, errors };
+      return { ok: true, checkedAt: Date.now(), snowluma, bridge, launcher, errors };
     })().finally(() => { updateCheckTask = null; });
   }
   return updateCheckTask;
