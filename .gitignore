@@ -1,0 +1,11 @@
+# 构建产物（不要提交）
+ins/SnowBridgeLauncherSetup.exe
+ins/payload.zip
+app/*.exe
+app/*.dll
+app/*.pdb
+
+# 本地日志与临时文件
+*.log
+logs/
+tmp/
