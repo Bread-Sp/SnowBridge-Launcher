@@ -292,6 +292,8 @@
   .update-row .links { display: flex; gap: 12px; font-size: 12.5px; }
   .update-row a { color: var(--blue); text-decoration: none; }
   .update-row a:hover { text-decoration: underline; }
+.notice-check { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 16px 16px; font-size: 13px; color: var(--muted); cursor: pointer; user-select: none; }
+.notice-check input { width: 16px; height: 16px; accent-color: var(--accent); }
   .update-row .note { font-size: 12px; color: var(--muted); word-break: break-word; }
   .settings-body { flex: 1; overflow: auto; padding: 8px 16px 16px; display: flex; flex-direction: column; }
   .settings-row { display: flex; align-items: center; gap: 14px; padding: 12px 2px; border-bottom: 1px solid var(--line); cursor: pointer; }
@@ -505,6 +507,18 @@
   </div>
 </div>
 
+<div id="updatenotice" class="modal" hidden>
+  <div class="modal-box" style="height: auto; max-height: 82vh;">
+    <div class="modal-top">
+      <span class="card-title">发现新版本</span>
+      <span class="spacer"></span>
+      <button class="ghost" id="updatenotice-close">关闭</button>
+    </div>
+    <div class="update-body" id="updatenotice-body"></div>
+    <label class="notice-check"><input type="checkbox" id="updatenotice-dontask" /><span>不再提示</span></label>
+  </div>
+</div>
+
 <div id="updates" class="modal" hidden>
   <div class="modal-box" style="height: auto; max-height: 82vh;">
     <div class="modal-top">
@@ -594,6 +608,10 @@
           <div class="settings-hint">改完立即生效；正在运行的服务要重启一次才会用新目录。</div>
         </section>
         <section class="settings-page" id="setpage-updates" data-page="updates">
+          <div class="settings-row">
+            <span class="settings-text"><b>自动检查更新</b><small>每次启动自动检查 SnowLuma / qq-bridge / 本软件的新版本</small></span>
+            <span class="switch"><input type="checkbox" id="set-autocheck" /></span>
+          </div>
           <div class="settings-row">
             <span class="settings-text"><b>版本与更新</b><small>检查 SnowLuma、qq-bridge 和本软件有没有新版本</small></span>
             <button class="ghost" id="set-check-updates">检查更新</button>
@@ -1218,14 +1236,14 @@ function updateBadge(item) {
   return item.hasUpdate ? { cls: 'new', text: '有新版本' } : { cls: 'ok', text: '已是最新' };
 }
 
-function renderUpdates(data) {
-  const body = $('#update-body');
+function renderUpdates(data, target = '#update-body', onlyUpdates = false) {
+  const body = $(target);
   body.textContent = '';
   const rows = [
     { label: 'SnowLuma', item: data.snowluma },
     { label: 'qq-bridge', item: data.bridge },
     { label: 'SnowBridge Launcher', item: data.launcher }
-  ];
+  ].filter(({ item }) => !onlyUpdates || Boolean(item?.hasUpdate));
   for (const { label, item } of rows) {
     const row = document.createElement('div');
     row.className = 'update-row';
@@ -1279,7 +1297,9 @@ function renderUpdates(data) {
     note.textContent = `部分检查源不可用：${data.errors.slice(0, 3).join('；')}${data.errors.length > 3 ? ' …' : ''}`;
     body.appendChild(note);
   }
-  $('#update-note').textContent = data.checkedAt ? `检查于 ${new Date(data.checkedAt).toLocaleTimeString()}` : '';
+  if (target === '#update-body') {
+    $('#update-note').textContent = data.checkedAt ? `检查于 ${new Date(data.checkedAt).toLocaleTimeString()}` : '';
+  }
 }
 
 async function openUpdates() {
@@ -1288,6 +1308,33 @@ async function openUpdates() {
   if (!data.ok) { toast(data.error || '版本检查失败', 'err'); return; }
   renderUpdates(data);
   openModal('#updates');
+}
+
+// 启动时自动检查更新（默认开）：三个里有任何一个有新版本就弹提示；
+// 弹窗里的「不再提示」勾上再关闭时，自动把「自动检查更新」关掉，下次不再打扰。
+let autoUpdateChecked = false;
+async function maybeAutoCheckUpdates() {
+  if (autoUpdateChecked) return;
+  autoUpdateChecked = true;
+  if (!state.data?.config?.autoCheckUpdates) return;
+  await new Promise((resolve) => setTimeout(resolve, 1200));
+  if (document.querySelector('.modal.open')) return;
+  const { ok, data } = await api('/api/check-updates');
+  if (!ok || !data) return;
+  const hasAny = ['snowluma', 'bridge', 'launcher'].some((key) => data[key]?.hasUpdate);
+  if (!hasAny) return;
+  renderUpdates(data, '#updatenotice-body', true);
+  $('#updatenotice-dontask').checked = false;
+  openModal('#updatenotice');
+}
+
+function closeUpdateNotice() {
+  const dontAsk = Boolean($('#updatenotice-dontask')?.checked);
+  closeModal('#updatenotice');
+  if (dontAsk) {
+    $('#set-autocheck').checked = false;
+    void saveSetting({ autoCheckUpdates: false }, '已关闭自动检查更新');
+  }
 }
 
 // 设置：开机自启 / 打开时自动启动服务 / 意外退出自动重启。
@@ -1447,6 +1494,7 @@ function renderSettings(data) {
   $('#set-closebg').checked = !closeState.ask && closeState.action === 'tray';
   $('#set-startminimized').checked = Boolean(data.startMinimized);
   $('#set-autoadopt').checked = Boolean(data.autoAdopt);
+  $('#set-autocheck').checked = Boolean(data.autoCheckUpdates);
   $('#set-dir-snowluma').textContent = data.snowlumaDir || '未绑定';
   $('#set-dir-bridge').textContent = data.bridgeDir || '未绑定';
   $('#set-dir-memory').textContent = data.memoryDir || '跟随桥接（默认）';
@@ -1781,6 +1829,15 @@ $('#set-autorestart').addEventListener('change', (event) => {
 $('#set-autoadopt').addEventListener('change', (event) => {
   void saveSetting({ autoAdopt: event.target.checked }, event.target.checked ? '已开启自动接管外部服务' : '已关闭自动接管外部服务');
 });
+$('#set-autocheck').addEventListener('change', (event) => {
+  void saveSetting({ autoCheckUpdates: event.target.checked }, event.target.checked ? '每次启动会自动检查更新' : '启动时不再自动检查更新');
+});
+
+$('#updatenotice-close').addEventListener('click', () => closeUpdateNotice());
+$('#updatenotice').addEventListener('click', (event) => {
+  if (event.target === $('#updatenotice')) closeUpdateNotice();
+});
+
 $('#set-check-updates').addEventListener('click', () => {
   // 更新弹窗在设置弹窗下面一层，先收起设置再打开更新，避免被遮住。
   closeModal('#settings');
@@ -1825,6 +1882,7 @@ $('#memory').addEventListener('click', (event) => {
 document.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return;
   if (!$('#memory').hidden) closeModal('#memory');
+  if (!$('#updatenotice').hidden) closeUpdateNotice();
   if (!$('#updates').hidden) closeModal('#updates');
   if (!$('#settings').hidden) closeModal('#settings');
   if (!$('#donate').hidden) closeModal('#donate');
@@ -1849,6 +1907,7 @@ $('#btn-quit').addEventListener('click', async () => {
   playSummon();
   buildPresetGrid();
   void maybeShowOnboarding();
+  void maybeAutoCheckUpdates();
   // SSE 之外的低频兜底刷新：长时间挂着时状态（含 DSH 端口漂移）也不会失真。
   setInterval(() => { void refresh(); }, 5000);
 })();

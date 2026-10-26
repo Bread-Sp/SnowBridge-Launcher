@@ -33,7 +33,7 @@ const MAX_LINES = 3000;
 const POLL_MS = 3000;
 
 /** 程序版本：显示在窗口标题、界面角标、托盘提示和安装包里，也是以后升级判断的依据。 */
-const VERSION = '0.1.1';
+const VERSION = '0.1.2';
 
 // ── 配置 ────────────────────────────────────────────────────────────────────
 const DEFAULT_CONFIG = {
@@ -43,6 +43,7 @@ const DEFAULT_CONFIG = {
   // 双击入口只把托盘挂起来，不弹窗口（设置 → 常规）。
   startMinimized: false,
   autoAdopt: true,        // 自动接管外部启动的 SnowLuma / qq-bridge（默认开启）
+  autoCheckUpdates: true, // 每次启动自动检查三件套的新版本（默认开启）
   autoRestart: true,     // 服务意外退出后自动重启（只对「本启动台启动的」生效）
   port: DEFAULT_PORT,
   // 自动加载 hook 的账号（UIN 字符串）。SnowLuma 自带的 hookAutoLoad 只能全开/全关，
@@ -223,7 +224,7 @@ function saveConfig(patch) {
   if (patch.appearance && typeof patch.appearance === 'object') {
     next.appearance = normalizeAppearance(patch.appearance, next.appearance);
   }
-  for (const key of ['autoStartAll', 'autoRestart', 'setupDone', 'startMinimized', 'autoAdopt']) {
+  for (const key of ['autoStartAll', 'autoRestart', 'setupDone', 'startMinimized', 'autoAdopt', 'autoCheckUpdates']) {
     if (typeof patch[key] === 'boolean') next[key] = patch[key];
   }
   // 首次引导期间允许「一次只绑一个目录」（另一个可能还没选），所以只校验这次改的；
@@ -1536,6 +1537,7 @@ function settingsSnapshot() {
     autoRestart: Boolean(config.autoRestart),
     startMinimized: Boolean(config.startMinimized),
     autoAdopt: Boolean(config.autoAdopt),
+    autoCheckUpdates: Boolean(config.autoCheckUpdates),
     startWithWindows: startupShortcutExists(),
     installDir: path.resolve(HERE, '..'),
     dataDir: APP_DIR,
@@ -1595,7 +1597,7 @@ async function applySettings(patch = {}) {
     }
   }
   const cfgPatch = {};
-  for (const key of ['autoStartAll', 'autoRestart', 'setupDone', 'startMinimized', 'autoAdopt']) {
+  for (const key of ['autoStartAll', 'autoRestart', 'setupDone', 'startMinimized', 'autoAdopt', 'autoCheckUpdates']) {
     if (typeof patch[key] === 'boolean') cfgPatch[key] = patch[key];
   }
   for (const key of ['snowlumaDir', 'bridgeDir', 'memoryDir']) {
