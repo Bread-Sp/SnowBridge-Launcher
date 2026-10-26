@@ -33,7 +33,7 @@ const MAX_LINES = 3000;
 const POLL_MS = 3000;
 
 /** 程序版本：显示在窗口标题、界面角标、托盘提示和安装包里，也是以后升级判断的依据。 */
-const VERSION = '0.0.2';
+const VERSION = '0.0.3';
 
 // ── 配置 ────────────────────────────────────────────────────────────────────
 const DEFAULT_CONFIG = {
@@ -555,13 +555,23 @@ async function latestReleaseTag(repo, errors) {
     if (!tag) throw new Error('发布页里没有版本号');
     return decodeURIComponent(tag).replace(/^[vV]/, '');
   });
-  try {
-    return await Promise.any(attempts);
-  } catch (error) {
-    const reasons = error instanceof AggregateError ? error.errors : [error];
-    for (const reason of reasons) errors.push(`${repo}: ${String(reason?.message ?? reason)}`);
+  // 镜像会缓存旧页面：不能「谁先回信用谁」，要把所有成功结果里版本最高的那个挑出来。
+  const results = await Promise.allSettled(attempts);
+  const tags = [];
+  const failures = [];
+  for (const result of results) {
+    if (result.status === 'fulfilled' && result.value) tags.push(result.value);
+    else if (result.status === 'rejected') failures.push(`${repo}: ${String(result.reason?.message ?? result.reason)}`);
+  }
+  if (!tags.length) {
+    errors.push(...failures);
     return '';
   }
+  tags.sort((a, b) => {
+    const cmp = compareVersions(a, b);
+    return Number.isNaN(cmp) ? 0 : cmp;
+  });
+  return tags[tags.length - 1];
 }
 
 /** SnowLuma：先问它自己的更新接口；没运行或接口不可用时退回发布页。 */

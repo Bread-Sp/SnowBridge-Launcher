@@ -87,7 +87,7 @@ SnowLuma 是 OneBot v11 网关，qq-bridge 是把 QQ 消息接进 DSH 的桥接�
 12. **托盘状态轮询全部非阻塞**：`DownloadStringTaskAsync` + 缓存 + 超时丢弃，UI 线程不做任何同步网络调用，否则右键菜单会卡死。
 13. **窗口动画分层**：页面管内容（`.summoning` / `.quitting`），宿主管整窗（`Opacity` + `Top` 三次缓出）；首次显示等 `NavigationCompleted` 之后再播，避免「窗口先出来、内容后到」。
 14. **启动顺序**：一键启动 / 重启 SnowLuma 时，如果配置了 hook，先等 OneBot 监听（最多 30 秒）再拉桥接；等不到也照常起桥接，桥接会自己重连。
-15. **本软件自更新检查**：版本号在 app/server.mjs 顶部 const VERSION，最新版读 LAUNCHER_REPO（Bread-Sp/SnowBridge-Launcher）的 Releases latest；checkUpdates() 现在并行查 SnowLuma / qq-bridge / 本软件三项，入口在设置弹窗的「版本与更新」。只提示、不自动升级，覆盖安装新包即可。
+15. **本软件自更新检查**：版本号在 app/server.mjs 顶部 const VERSION，最新版读 LAUNCHER_REPO（Bread-Sp/SnowBridge-Launcher）的 Releases latest；checkUpdates() 现在并行查 SnowLuma / qq-bridge / 本软件三项，入口在设置弹窗的「版本与更新」。只提示、不自动升级，覆盖安装新包即可。镜像会缓存旧发布页，所以取所有成功响应里版本最高的 tag（不是谁先返回用谁），否则新版本刚发时会读到镜像里的旧 tag。
 ## 目录结构
 
 ```
