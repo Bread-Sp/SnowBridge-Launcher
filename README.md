@@ -57,3 +57,11 @@
 MIT，见 [LICENSE](LICENSE)。
 
 第三方组件：Microsoft WebView2 SDK（`third_party/webview2/`），遵循其各自许可，见 [third_party/webview2/NOTICE.md](third_party/webview2/NOTICE.md)。
+
+## 更新日志
+
+### 2022.10.27 0.1.1 测试版本
+- 上传测试版至本仓库
+
+### 2022.10.27 0.1.2 测试版本
+- 添加了 **自动检查更新** 功能
