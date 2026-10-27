@@ -1,8 +1,9 @@
 # SnowBridge Launcher
-
+非官方第三方工具。 SnowBridge Launcher 与 SnowLuma、qq-bridge 的开发者无隶属或合作关系，未获其背书。本项目不包含、不修改、不再分发它们的任何代码或安装包；使用前请自行安装 SnowLuma 与 qq-bridge。
 > 让 SnowLuma 和 qq-bridge 的启动变得更加方便
 
 ![界面截图](docs/screenshot.png)
+
 
 ## 这是什么
 
@@ -25,8 +26,10 @@
 - Microsoft Edge WebView2 Runtime（Windows 11 自带；Windows 10 一般随 Edge 装好）
 
 ## 安装
+> 本工具不提供 SnowLuma / qq-bridge 安装包，请先按各自官方文档装好，再设置路径。
 
 双击 `SnowBridgeLauncherSetup.exe`，安装到默认目录（`%LOCALAPPDATA%\Programs\SnowBridge Launcher`），会创建桌面快捷方式、开始菜单项和卸载项。
+
 
 静默安装 / 自定义目录：
 
@@ -50,6 +53,10 @@
 - 日志：`%LOCALAPPDATA%\QQbot\logs\{snowluma,bridge}.log`，启动台自己的日志 `tray.log`、`host.log` 也在同一目录
 - SnowLuma 自己的日志：`<SnowLuma 目录>\logs\`
 - 启动台和安装目录里不保存密码明文；控制台密码用 DPAPI 密文存在 `launcher.json`
+
+##免责声明
+
+- 包括三块：非官方声明、商标归属（QQ / 腾讯 / SnowLuma 归各自所有者），以及“使用 SnowLuma 本身仍须遵守其 LICENSE 与 EULA”。
 
 
 ## 许可证
