@@ -54,7 +54,7 @@
 - SnowLuma 自己的日志：`<SnowLuma 目录>\logs\`
 - 启动台和安装目录里不保存密码明文；控制台密码用 DPAPI 密文存在 `launcher.json`
 
-##免责声明
+##免责声明##
 
 - 包括三块：非官方声明、商标归属（QQ / 腾讯 / SnowLuma 归各自所有者），以及“使用 SnowLuma 本身仍须遵守其 LICENSE 与 EULA”。
 
