@@ -1,5 +1,5 @@
 # SnowBridge Launcher
-非官方第三方工具。 SnowBridge Launcher 与 SnowLuma、qq-bridge 的开发者无隶属或合作关系，未获其背书。本项目不包含、不修改、不再分发它们的任何代码或安装包；使用前请自行安装 SnowLuma 与 qq-bridge。
+非官方第三方工具。 SnowBridge Launcher 与 [SnowLuma](https://github.com/SnowLuma/SnowLuma)、[qq-bridge](https://github.com/Derpyu520/qq-bridge) 的开发者无隶属或合作关系，未获其背书。本项目不包含、不修改、不再分发它们的任何代码或安装包；使用前请自行安装 SnowLuma 与 qq-bridge。
 > 让 SnowLuma 和 qq-bridge 的启动变得更加方便
 
 ![界面截图](docs/screenshot.png)
