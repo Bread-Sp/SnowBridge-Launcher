@@ -7,7 +7,7 @@
 
 ## 这是什么
 
-将 SnowLuma 和 qq-bridge 的CMD窗口整合成一个桌面应用。
+将 [SnowLuma](https://github.com/SnowLuma/SnowLuma) 和 [qq-bridge](https://github.com/Derpyu520/qq-bridge) 的CMD窗口整合成一个桌面应用。
 
 - **一键启动 / 停止 / 重启 / 接管**：启动顺序、重启、都可以使用 SnowBridge Launcher 一键操作
 - **接管现有服务**：手动运行的 SnowLuma 和 qq-bridge 也可以自动接管
